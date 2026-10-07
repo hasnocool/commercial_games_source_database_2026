@@ -11,5 +11,8 @@ license = {text = "MIT"}
 authors = [{name = "hasnocool"}]
 dependencies = []
 
+[tool.setuptools]
+py-modules = ["cgsdb"]
+
 [project.scripts]
 cgsdb = "cgsdb:main"
