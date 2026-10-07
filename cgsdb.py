@@ -1,0 +1,606 @@
+"""Filename: cgsdb.py"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import os
+import re
+import sqlite3
+import sys
+import time
+import urllib.error
+import urllib.request
+from datetime import UTC, datetime
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+ROOT = Path(__file__).resolve().parent
+DATA_DIR = ROOT / "data"
+WEB_DIR = ROOT / "web"
+CSV_PATH = DATA_DIR / "games.csv"
+DB_PATH = DATA_DIR / "games.db"
+SCHEMA_VERSION = 1
+
+GITHUB_RE = re.compile(r"https?://github\\.com/([^/]+)/([^/#?]+)", re.IGNORECASE)
+NON_ALNUM = re.compile(r"[^a-z0-9]+")
+
+CREATE_SQL = """
+PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+
+CREATE TABLE IF NOT EXISTS metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS games (
+    id INTEGER PRIMARY KEY,
+    popularity_rank INTEGER NOT NULL,
+    game TEXT NOT NULL,
+    game_key TEXT NOT NULL UNIQUE,
+    original_year TEXT,
+    original_developer TEXT,
+    source_release TEXT,
+    license_status TEXT,
+    source_scope TEXT,
+    assets_data TEXT,
+    official_repository TEXT,
+    modern_source_port TEXT,
+    engine_architecture TEXT,
+    modding_potential INTEGER,
+    rust_port_candidate INTEGER,
+    github_stars INTEGER,
+    github_stars_live INTEGER,
+    github_checked_at TEXT,
+    verification_notes TEXT,
+    primary_source TEXT,
+    github_owner TEXT,
+    github_repo TEXT,
+    license_family TEXT NOT NULL,
+    source_status TEXT NOT NULL,
+    rust_score_computed INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_games_popularity ON games(popularity_rank);
+CREATE INDEX IF NOT EXISTS idx_games_rust ON games(rust_port_candidate DESC, modding_potential DESC);
+CREATE INDEX IF NOT EXISTS idx_games_developer ON games(original_developer);
+CREATE INDEX IF NOT EXISTS idx_games_license ON games(license_family);
+CREATE INDEX IF NOT EXISTS idx_games_status ON games(source_status);
+CREATE INDEX IF NOT EXISTS idx_games_github ON games(github_owner, github_repo);
+CREATE INDEX IF NOT EXISTS idx_games_title ON games(game COLLATE NOCASE);
+"""
+
+
+def utc_now() -> str:
+    return datetime.now(UTC).isoformat(timespec="seconds")
+
+
+def normalize_game_key(name: str) -> str:
+    return NON_ALNUM.sub("-", name.lower()).strip("-") or "game"
+
+
+def parse_github(url: str) -> tuple[str | None, str | None]:
+    match = GITHUB_RE.search(url or "")
+    if not match:
+        return None, None
+    return match.group(1), match.group(2).removesuffix(".git")
+
+
+def classify_license(value: str) -> str:
+    text = (value or "").lower()
+    if any(x in text for x in ("gpl", "lgpl", "mit", "apache", "bsd", "isc")):
+        return "open-source"
+    if "public domain" in text:
+        return "public-domain"
+    if any(x in text for x in ("source-available", "source available", "source released")):
+        return "source-available"
+    if any(x in text for x in ("proprietary", "sdk")):
+        return "proprietary/source-sdk"
+    if any(x in text for x in ("found", "recovered")):
+        return "unclear/recovered"
+    return "unclear"
+
+
+def classify_source_status(license_status: str, notes: str) -> str:
+    combined = f"{license_status} {notes}".lower()
+    if "not an authorized" in combined or "unauthorized" in combined or "accidental" in combined:
+        return "found-not-authorized"
+    family = classify_license(license_status)
+    if family in {"open-source", "public-domain"}:
+        return "open"
+    if family in {"source-available", "proprietary/source-sdk"}:
+        return "source-available"
+    return "unclear"
+
+
+def compute_rust_score(row: dict[str, str]) -> int:
+    score = 5.0
+    scope = row.get("Source Scope", "").lower()
+    license_text = row.get("License / Status", "")
+    arch = row.get("Engine / Architecture", "").lower()
+    notes = row.get("Verification / Notes", "").lower()
+
+    if "game/engine" in scope or "game source" in scope:
+        score += 1.2
+    elif "source" in scope:
+        score += 0.6
+    if "server/backend" in scope:
+        score -= 0.8
+
+    family = classify_license(license_text)
+    if family == "open-source":
+        score += 1.0
+    elif family == "public-domain":
+        score += 0.8
+    elif family == "proprietary/source-sdk":
+        score -= 0.4
+
+    if any(x in arch for x in ("bsp", "client/server", "scripting", "physics")):
+        score += 0.5
+    if any(x in arch for x in ("2.5d", "raycasting")):
+        score += 0.25
+    if "not an authorized" in notes or "license status less clear" in notes:
+        score -= 0.9
+
+    try:
+        modding = int(row.get("Modding Potential (1-5)") or 0)
+    except ValueError:
+        modding = 0
+    score += max(0, min(5, modding) - 3) * 0.25
+
+    return max(1, min(10, round(score)))
+
+
+def connect() -> sqlite3.Connection:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH, timeout=5.0)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA busy_timeout=5000")
+    return conn
+
+
+def init_db() -> None:
+    with connect() as conn:
+        conn.executescript(CREATE_SQL)
+        conn.execute(
+            "INSERT INTO metadata(key,value) VALUES('schema_version',?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (str(SCHEMA_VERSION),),
+        )
+        conn.commit()
+
+
+def read_csv(path: Path = CSV_PATH):
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        required = {
+            "Popularity Rank", "Game", "Original Year", "Original Developer",
+            "Source Release", "License / Status", "Source Scope", "Assets / Data",
+            "Official / Primary Repository", "Modern Source Port / Continuation",
+            "Engine / Architecture", "Modding Potential (1-5)", "Rust Port Candidate (1-10)",
+            "GitHub Stars", "Verification / Notes", "Primary Source",
+        }
+        missing = required - set(reader.fieldnames or ())
+        if missing:
+            raise ValueError(f"CSV missing columns: {sorted(missing)}")
+        yield from reader
+
+
+def import_csv(path: Path = CSV_PATH) -> int:
+    init_db()
+    rows = list(read_csv(path))
+    with connect() as conn:
+        conn.execute("DELETE FROM games")
+        for row in rows:
+            owner, repo = parse_github(row.get("Official / Primary Repository", ""))
+            modding = int(row["Modding Potential (1-5)"]) if row["Modding Potential (1-5)"].strip() else None
+            candidate = int(row["Rust Port Candidate (1-10)"]) if row["Rust Port Candidate (1-10)"].strip() else None
+            stars = int(float(row["GitHub Stars"])) if row["GitHub Stars"].strip() else None
+            conn.execute(
+                """INSERT INTO games (
+                    popularity_rank, game, game_key, original_year, original_developer,
+                    source_release, license_status, source_scope, assets_data,
+                    official_repository, modern_source_port, engine_architecture,
+                    modding_potential, rust_port_candidate, github_stars,
+                    verification_notes, primary_source, github_owner, github_repo,
+                    license_family, source_status, rust_score_computed
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    int(row["Popularity Rank"]), row["Game"], normalize_game_key(row["Game"]),
+                    row["Original Year"], row["Original Developer"], row["Source Release"],
+                    row["License / Status"], row["Source Scope"], row["Assets / Data"],
+                    row["Official / Primary Repository"], row["Modern Source Port / Continuation"],
+                    row["Engine / Architecture"], modding, candidate, stars,
+                    row["Verification / Notes"], row["Primary Source"], owner, repo,
+                    classify_license(row["License / Status"]),
+                    classify_source_status(row["License / Status"], row["Verification / Notes"]),
+                    compute_rust_score(row),
+                ),
+            )
+        for key, value in {
+            "dataset_imported_at": utc_now(),
+            "dataset_rows": str(len(rows)),
+        }.items():
+            conn.execute(
+                "INSERT INTO metadata(key,value) VALUES(?,?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, value),
+            )
+        conn.commit()
+    return len(rows)
+
+
+GAME_COLUMNS = """
+    id, popularity_rank, game, game_key, original_year, original_developer,
+    source_release, license_status, source_scope, assets_data,
+    official_repository, modern_source_port, engine_architecture,
+    modding_potential, rust_port_candidate, github_stars,
+    github_stars_live, github_checked_at, verification_notes, primary_source,
+    github_owner, github_repo, license_family, source_status, rust_score_computed
+"""
+
+
+def ensure_database() -> None:
+    if not DB_PATH.exists():
+        import_csv()
+
+
+def search_games(query: str = "", license: str | None = None,
+                 min_rust_score: int | None = None, limit: int = 50) -> list[dict]:
+    ensure_database()
+    clauses: list[str] = []
+    params: list[object] = []
+
+    if query:
+        needle = f"%{query}%"
+        clauses.append(
+            "(game LIKE ? OR original_developer LIKE ? OR engine_architecture LIKE ? "
+            "OR modern_source_port LIKE ? OR verification_notes LIKE ?)"
+        )
+        params.extend([needle] * 5)
+
+    if license:
+        clauses.append("license_family = ?")
+        params.append(license)
+
+    if min_rust_score is not None:
+        clauses.append("COALESCE(rust_port_candidate, rust_score_computed) >= ?")
+        params.append(min_rust_score)
+
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    sql = f"""
+        SELECT {GAME_COLUMNS}
+        FROM games
+        {where}
+        ORDER BY COALESCE(rust_port_candidate, rust_score_computed) DESC,
+                 popularity_rank ASC
+        LIMIT ?
+    """
+    params.append(max(1, min(limit, 500)))
+
+    with connect() as conn:
+        return [dict(row) for row in conn.execute(sql, params)]
+
+
+def get_game(game_key: str) -> dict | None:
+    ensure_database()
+    with connect() as conn:
+        row = conn.execute(
+            f"SELECT {GAME_COLUMNS} FROM games WHERE game_key = ?",
+            (game_key,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def stats() -> dict:
+    ensure_database()
+    with connect() as conn:
+        return {
+            "total_games": conn.execute("SELECT COUNT(*) FROM games").fetchone()[0],
+            "open_source": conn.execute("SELECT COUNT(*) FROM games WHERE source_status='open'").fetchone()[0],
+            "source_available": conn.execute("SELECT COUNT(*) FROM games WHERE source_status='source-available'").fetchone()[0],
+            "unclear": conn.execute("SELECT COUNT(*) FROM games WHERE source_status='unclear'").fetchone()[0],
+            "found_not_authorized": conn.execute("SELECT COUNT(*) FROM games WHERE source_status='found-not-authorized'").fetchone()[0],
+            "with_github_repo": conn.execute("SELECT COUNT(*) FROM games WHERE github_owner IS NOT NULL").fetchone()[0],
+            "github_live_checked": conn.execute("SELECT COUNT(*) FROM games WHERE github_checked_at IS NOT NULL").fetchone()[0],
+            "avg_rust_score": conn.execute(
+                "SELECT ROUND(AVG(COALESCE(rust_port_candidate,rust_score_computed)),2) FROM games"
+            ).fetchone()[0],
+            "top_candidates": [
+                dict(row) for row in conn.execute(
+                    """SELECT popularity_rank, game, rust_port_candidate, rust_score_computed,
+                              modding_potential, github_stars_live, github_stars
+                       FROM games
+                       ORDER BY COALESCE(rust_port_candidate,rust_score_computed) DESC,
+                                popularity_rank ASC
+                       LIMIT 15"""
+                )
+            ],
+            "top_developers": [
+                dict(row) for row in conn.execute(
+                    """SELECT original_developer AS developer, COUNT(*) AS count
+                       FROM games
+                       GROUP BY original_developer
+                       ORDER BY count DESC, developer
+                       LIMIT 12"""
+                )
+            ],
+        }
+
+
+def export_csv(output: Path) -> int:
+    ensure_database()
+    with connect() as conn:
+        rows = conn.execute(
+            f"SELECT {GAME_COLUMNS} FROM games ORDER BY popularity_rank"
+        ).fetchall()
+
+    fields = [
+        "Popularity Rank", "Game", "Original Year", "Original Developer",
+        "Source Release", "License / Status", "Source Scope", "Assets / Data",
+        "Official / Primary Repository", "Modern Source Port / Continuation",
+        "Engine / Architecture", "Modding Potential (1-5)", "Rust Port Candidate (1-10)",
+        "GitHub Stars", "Verification / Notes", "Primary Source",
+    ]
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(fields)
+        for row in rows:
+            writer.writerow([
+                row["popularity_rank"], row["game"], row["original_year"], row["original_developer"],
+                row["source_release"], row["license_status"], row["source_scope"], row["assets_data"],
+                row["official_repository"], row["modern_source_port"], row["engine_architecture"],
+                row["modding_potential"] if row["modding_potential"] is not None else "",
+                row["rust_port_candidate"] if row["rust_port_candidate"] is not None else "",
+                row["github_stars"] if row["github_stars"] is not None else "",
+                row["verification_notes"], row["primary_source"],
+            ])
+    return len(rows)
+
+
+def sync_github(limit: int = 500, delay: float = 0.15, token: str | None = None) -> dict:
+    ensure_database()
+    token = token or os.getenv("GITHUB_TOKEN")
+
+    with connect() as conn:
+        repos = conn.execute(
+            """SELECT id, github_owner, github_repo
+               FROM games
+               WHERE github_owner IS NOT NULL AND github_repo IS NOT NULL
+               ORDER BY popularity_rank
+               LIMIT ?""",
+            (max(1, min(limit, 500)),),
+        ).fetchall()
+
+    checked = 0
+    updated = 0
+    errors: list[dict] = []
+
+    for row in repos:
+        url = f"https://api.github.com/repos/{row['github_owner']}/{row['github_repo']}"
+        request = urllib.request.Request(
+            url,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "commercial-games-source-database-2026/0.1",
+                **({"Authorization": f"Bearer {token}"} if token else {}),
+            },
+        )
+        stars: int | None = None
+        error: str | None = None
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                payload = json.load(response)
+                stars = int(payload.get("stargazers_count", 0))
+        except urllib.error.HTTPError as exc:
+            error = f"HTTP {exc.code}"
+        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+            error = str(exc)
+
+        now = utc_now()
+        with connect() as conn:
+            conn.execute(
+                "UPDATE games SET github_stars_live=?, github_checked_at=? WHERE id=?",
+                (stars, now, row["id"]),
+            )
+            conn.commit()
+
+        checked += 1
+        if stars is not None:
+            updated += 1
+        else:
+            errors.append({
+                "owner": row["github_owner"],
+                "repo": row["github_repo"],
+                "error": error,
+            })
+
+        if delay > 0:
+            time.sleep(delay)
+
+    return {"checked": checked, "updated": updated, "errors": errors}
+
+
+def self_test() -> int:
+    if not CSV_PATH.exists():
+        print(f"FAIL: missing {CSV_PATH}", file=sys.stderr)
+        return 1
+
+    count = import_csv()
+    payload = stats()
+    doom = get_game("doom")
+    quake = search_games("quake")
+
+    checks = {
+        "110 rows imported": count == 110,
+        "110 rows in database": payload["total_games"] == 110,
+        "DOOM is present": doom is not None,
+        "DOOM is open source classified": doom is not None and doom["license_family"] == "open-source",
+        "Quake search works": any(x["game"] == "Quake" for x in quake),
+        "GitHub repositories parsed": payload["with_github_repo"] > 0,
+    }
+
+    for label, ok in checks.items():
+        print(f"{'PASS' if ok else 'FAIL'}: {label}")
+
+    return 0 if all(checks.values()) else 1
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "CGSDB/0.1"
+
+    def json_response(self, payload: object, status: int = HTTPStatus.OK) -> None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+
+        if parsed.path == "/":
+            body = (WEB_DIR / "index.html").read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if parsed.path == "/api/stats":
+            self.json_response(stats())
+            return
+
+        if parsed.path == "/api/games":
+            query = parse_qs(parsed.query)
+            try:
+                min_rust = int(query.get("min_rust", [""])[0]) if query.get("min_rust", [""])[0] else None
+                limit = int(query.get("limit", ["100"])[0] or 100)
+            except ValueError:
+                self.json_response({"error": "invalid numeric filter"}, HTTPStatus.BAD_REQUEST)
+                return
+
+            rows = search_games(
+                query.get("q", [""])[0],
+                license=query.get("license", [None])[0] or None,
+                min_rust_score=min_rust,
+                limit=limit,
+            )
+            self.json_response({"count": len(rows), "games": rows})
+            return
+
+        if parsed.path.startswith("/api/games/"):
+            key = parsed.path.rsplit("/", 1)[-1]
+            game = get_game(key)
+            self.json_response(game if game else {"error": "not found"},
+                               HTTPStatus.OK if game else HTTPStatus.NOT_FOUND)
+            return
+
+        self.json_response({"error": "not found"}, HTTPStatus.NOT_FOUND)
+
+    def log_message(self, fmt: str, *args) -> None:
+        print(f"{self.address_string()} - {fmt % args}")
+
+
+def serve(host: str, port: int) -> None:
+    ensure_database()
+    server = ThreadingHTTPServer((host, port), Handler)
+    print(f"Commercial Games Source Database: http://{host}:{port}/")
+    try:
+        server.serve_forever(poll_interval=0.25)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+
+
+def parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description="Commercial Games Source Database 2026")
+    sub = p.add_subparsers(dest="command", required=True)
+
+    init = sub.add_parser("init", help="import data/games.csv into SQLite")
+    init.add_argument("--csv", type=Path, default=CSV_PATH)
+
+    search = sub.add_parser("search", help="search and rank games")
+    search.add_argument("query", nargs="?", default="")
+    search.add_argument("--license")
+    search.add_argument("--min-rust-score", type=int)
+    search.add_argument("--limit", type=int, default=25)
+    search.add_argument("--json", action="store_true")
+
+    stat = sub.add_parser("stats", help="show dataset statistics")
+    stat.add_argument("--json", action="store_true")
+
+    sync = sub.add_parser("sync-github", help="refresh stars for listed GitHub repositories")
+    sync.add_argument("--limit", type=int, default=500)
+    sync.add_argument("--delay", type=float, default=0.15)
+
+    export = sub.add_parser("export", help="export the database to CSV")
+    export.add_argument("output", type=Path)
+
+    srv = sub.add_parser("serve", help="run the local dashboard")
+    srv.add_argument("--host", default="127.0.0.1")
+    srv.add_argument("--port", type=int, default=8080)
+
+    sub.add_parser("self-test", help="run local database/application checks")
+    return p
+
+
+def main() -> None:
+    args = parser().parse_args()
+
+    if args.command == "init":
+        count = import_csv(args.csv)
+        print(f"Imported {count} games into {DB_PATH}")
+    elif args.command == "search":
+        rows = search_games(
+            args.query,
+            license=args.license,
+            min_rust_score=args.min_rust_score,
+            limit=args.limit,
+        )
+        if args.json:
+            print(json.dumps(rows, ensure_ascii=False, indent=2))
+            return
+        for row in rows:
+            score = row["rust_port_candidate"] or row["rust_score_computed"]
+            stars = row["github_stars_live"]
+            if stars is None:
+                stars = row["github_stars"]
+            print(f"{row['popularity_rank']:>3}  {score:>2}/10  {str(stars or '-'):>7}  "
+                  f"{row['game']} — {row['engine_architecture']}")
+    elif args.command == "stats":
+        payload = stats()
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"Games: {payload['total_games']}")
+            print(f"Open source/public domain: {payload['open_source']}")
+            print(f"Source available: {payload['source_available']}")
+            print(f"Unclear/recovered: {payload['unclear']}")
+            print(f"Found but not authorized: {payload['found_not_authorized']}")
+            print(f"Rows with GitHub repos: {payload['with_github_repo']}")
+            print(f"Rows with live GitHub checks: {payload['github_live_checked']}")
+            print(f"Average candidate score: {payload['avg_rust_score']}")
+    elif args.command == "sync-github":
+        print(json.dumps(sync_github(args.limit, args.delay), indent=2))
+    elif args.command == "export":
+        print(f"Exported {export_csv(args.output)} games to {args.output}")
+    elif args.command == "serve":
+        serve(args.host, args.port)
+    elif args.command == "self-test":
+        raise SystemExit(self_test())
+
+
+if __name__ == "__main__":
+    main()
