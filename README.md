@@ -6,7 +6,7 @@ The project keeps the supplied research CSV as the canonical seed dataset and bu
 
 ## Current dataset
 
-- **132 game records**
+- **191 game records**
 - Popularity ranking from the supplied 2026 research
 - Original year and developer
 - Source-release year/status
@@ -30,6 +30,21 @@ The catalog intentionally includes restrictive source releases when they are use
 New records are appended as ranks **111-132** so the established research ranking remains stable; these are insertion-order ranks, not a claim that the new titles have been globally popularity re-ranked.
 
 Run `python cgsdb.py sync-github` to populate live GitHub star counts for the newly added repositories.
+
+
+### 2026-10-07 research expansion — discovery sweep
+
+The database now contains **191 records**. This sweep expands beyond GitHub-centric discovery by using three complementary discovery surfaces:
+
+- **Internet Archive:** the historical Game Source Code Collection is a high-recall preservation index, but its contents mix licenses and provenance. Archive hits are therefore discovery leads, not automatic proof of open-source licensing.
+- **SteamDB:** useful for identifying commercial Steam releases and hidden/free source-code packages. For example, SteamDB exposes a dedicated **Crongdor the Barbarian source-code package** marked GPLv3 and free on demand. urlSteamDB source package evidencehttps://steamdb.info/app/488190/
+- **IGDB:** useful for cross-checking commercial release dates/developers and surfacing games that may not appear in GitHub searches. It is treated as metadata/discovery evidence rather than a substitute for license verification.
+
+This pass adds older and less-obvious source releases including **NoGravity, Planet Blupi, Principia, Soldat, Sopwith, Ares/Antares, Avara, Allegiance, Meridian 59, Star Ruler 2, Starshatter, Tribal Trouble, Catacomb/Catacomb 3D, The Colony, C&C Generals Zero Hour, C&C Renegade, Cortex Command, Delver, Quake 4, Spacebase DF-9, Revenge of the Titans, Crongdor the Barbarian,** and a **DROD series** engine-source record.
+
+Two important classification rules remain in force: leaked/accidental/found source is **not** treated as an authorized open-source release, and restrictive source releases such as **Unturned** and **Barotrauma** stay marked source-available rather than OSI open source.
+
+The new records are appended after the established ranking. Their rank numbers are **catalog insertion ranks**, not a new global popularity ordering.
 
 ## Run without installing anything
 
