@@ -142,3 +142,41 @@ Each HTTP request opens its own short-lived SQLite connection. The dashboard is 
 Application code: MIT.
 
 The linked game source code, assets, trademarks, and individual research records retain their own licensing and provenance conditions.
+
+
+## Discovery / provenance layer
+
+The canonical `data/games.csv` remains separate from the high-recall research layer under `data/discovery/`.
+
+The discovery layer contains:
+
+- `candidates.csv` — one record per discovered candidate, including discovery source, query/URL, review state, literal license claim, source completeness, authorization state, and confidence fields.
+- `evidence.csv` — independent evidence records for each candidate. The importer computes a stable SHA-256 evidence fingerprint to prevent duplicate evidence from accumulating across repeated sweeps.
+- `runs.csv` — timestamped discovery sweeps with source sets, queries/collections, candidate counts, and notes.
+- `sources.csv` — the discovery-source registry describing the intended role of Internet Archive, SteamDB, IGDB, GitHub, Wayback, developer/rightsholder sites, and secondary research.
+- `schema.json` — the machine-readable field contract and review-state vocabulary.
+- `README.md` — workflow and provenance policy.
+
+The current bootstrap contains **227 candidate records and 318 evidence records** inherited from the 227 canonical games. These are explicitly marked `accepted-canonical-inherited-unreviewed`; they are not claims that every historical source/license has been freshly re-verified.
+
+### Discovery workflow
+
+Use discovery data as a staging layer:
+
+```bash
+python cgsdb.py discovery-search --source internet-archive
+python cgsdb.py discovery-search --review-status new
+python cgsdb.py discovery-stats --json
+python cgsdb.py discovery-report reports/discovery-review.md
+python cgsdb.py import-discovery
+```
+
+A candidate should normally move through:
+
+`new` → `needs-verification` → `accepted-canonical`
+
+or to `duplicate`, `rejected`, or `unauthorized`.
+
+Discovery services are deliberately separated by role. Internet Archive and preservation archives maximize historical recall; SteamDB and IGDB help identify commercial releases; GitHub and developer/rightsholder pages are stronger for repository/license/authorization verification; Wayback is used to recover historical announcements and removed links.
+
+A public archive copy is not automatically an authorized open-source release. The canonical dataset should only claim an open-source status when the evidence supports the license and provenance.
