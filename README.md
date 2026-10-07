@@ -6,7 +6,7 @@ The project keeps the supplied research CSV as the canonical seed dataset and bu
 
 ## Current dataset
 
-- **191 game records**
+- **227 game records**
 - Popularity ranking from the supplied 2026 research
 - Original year and developer
 - Source-release year/status
@@ -45,6 +45,15 @@ This pass adds older and less-obvious source releases including **NoGravity, Pla
 Two important classification rules remain in force: leaked/accidental/found source is **not** treated as an authorized open-source release, and restrictive source releases such as **Unturned** and **Barotrauma** stay marked source-available rather than OSI open source.
 
 The new records are appended after the established ranking. Their rank numbers are **catalog insertion ranks**, not a new global popularity ordering.
+
+
+### Deeper discovery sweep — Internet Archive, SteamDB and IGDB
+
+This revision pushes the catalog beyond the well-known GitHub-hosted releases. **Internet Archive** is used as a preservation/discovery index for historical source archives; **SteamDB** is especially useful for finding hidden/free source-code packages (for example the Crongdor source package is explicitly GPLv3 and free-on-demand); and **IGDB** is used as a commercial-game metadata cross-check. These services are discovery evidence, not automatic proof of an open-source license.
+
+The new records include platform-specific source releases (3DO, SNES, Jaguar, Apple II, PlayStation), obscure developer releases, and newer 2024–2026 source drops. Records with unresolved or restrictive licensing are intentionally included but marked **source-available / license unclear**, **source-available / non-commercial**, or **proprietary** rather than being counted as OSI open source.
+
+The catalog now contains **227 records**. This is deliberately a high-recall preservation database: a public source archive is valuable even when its license is not yet resolved, provided the provenance and limitations are explicit.
 
 ## Run without installing anything
 
