@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import os
 import re
@@ -22,8 +23,12 @@ ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 WEB_DIR = ROOT / "web"
 CSV_PATH = DATA_DIR / "games.csv"
+DISCOVERY_DIR = DATA_DIR / "discovery"
+DISCOVERY_CANDIDATES_PATH = DISCOVERY_DIR / "candidates.csv"
+DISCOVERY_EVIDENCE_PATH = DISCOVERY_DIR / "evidence.csv"
+DISCOVERY_RUNS_PATH = DISCOVERY_DIR / "runs.csv"
 DB_PATH = DATA_DIR / "games.db"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 GITHUB_RE = re.compile(r"https?://github\.com/([^/]+)/([^/#?]+)", re.IGNORECASE)
 NON_ALNUM = re.compile(r"[^a-z0-9]+")
@@ -73,6 +78,71 @@ CREATE INDEX IF NOT EXISTS idx_games_license ON games(license_family);
 CREATE INDEX IF NOT EXISTS idx_games_status ON games(source_status);
 CREATE INDEX IF NOT EXISTS idx_games_github ON games(github_owner, github_repo);
 CREATE INDEX IF NOT EXISTS idx_games_title ON games(game COLLATE NOCASE);
+CREATE TABLE IF NOT EXISTS discovery_candidates (
+    candidate_id TEXT PRIMARY KEY,
+    game_key TEXT,
+    candidate_title TEXT NOT NULL,
+    original_year TEXT,
+    developer TEXT,
+    linked_game_status TEXT NOT NULL,
+    discovery_sources TEXT NOT NULL,
+    first_discovered_at TEXT,
+    discovery_query TEXT,
+    discovery_url TEXT,
+    review_status TEXT NOT NULL,
+    exact_license TEXT,
+    license_family TEXT,
+    source_completeness TEXT,
+    authorization_status TEXT,
+    provenance_confidence TEXT,
+    evidence_confidence TEXT,
+    notes TEXT,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_discovery_candidates_game_key ON discovery_candidates(game_key);
+CREATE INDEX IF NOT EXISTS idx_discovery_candidates_review ON discovery_candidates(review_status);
+CREATE INDEX IF NOT EXISTS idx_discovery_candidates_source ON discovery_candidates(discovery_sources);
+CREATE INDEX IF NOT EXISTS idx_discovery_candidates_auth ON discovery_candidates(authorization_status);
+CREATE INDEX IF NOT EXISTS idx_discovery_candidates_completeness ON discovery_candidates(source_completeness);
+CREATE INDEX IF NOT EXISTS idx_discovery_candidates_title ON discovery_candidates(candidate_title COLLATE NOCASE);
+
+CREATE TABLE IF NOT EXISTS discovery_evidence (
+    evidence_id TEXT PRIMARY KEY,
+    candidate_id TEXT NOT NULL,
+    evidence_fingerprint TEXT NOT NULL UNIQUE,
+    evidence_source TEXT NOT NULL,
+    evidence_url TEXT NOT NULL,
+    evidence_title TEXT,
+    accessed_at TEXT,
+    evidence_type TEXT NOT NULL,
+    publisher_or_owner TEXT,
+    source_release_date TEXT,
+    license_claim TEXT,
+    source_scope_claim TEXT,
+    authorization_signal TEXT,
+    source_completeness_claim TEXT,
+    confidence TEXT,
+    notes TEXT,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_discovery_evidence_candidate ON discovery_evidence(candidate_id);
+CREATE INDEX IF NOT EXISTS idx_discovery_evidence_source ON discovery_evidence(evidence_source);
+CREATE INDEX IF NOT EXISTS idx_discovery_evidence_confidence ON discovery_evidence(confidence);
+
+CREATE TABLE IF NOT EXISTS discovery_runs (
+    run_id TEXT PRIMARY KEY,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    discovery_source TEXT NOT NULL,
+    query_or_collection TEXT NOT NULL,
+    status TEXT NOT NULL,
+    candidates_found INTEGER NOT NULL DEFAULT 0,
+    candidates_added INTEGER NOT NULL DEFAULT 0,
+    notes TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_discovery_runs_source ON discovery_runs(discovery_source);
+CREATE INDEX IF NOT EXISTS idx_discovery_runs_started ON discovery_runs(started_at DESC);
+
 """
 
 
@@ -244,6 +314,379 @@ GAME_COLUMNS = """
     github_stars_live, github_checked_at, verification_notes, primary_source,
     github_owner, github_repo, license_family, source_status, rust_score_computed
 """
+
+
+DISCOVERY_CANDIDATE_COLUMNS = """
+    candidate_id, game_key, candidate_title, original_year, developer,
+    linked_game_status, discovery_sources, first_discovered_at,
+    discovery_query, discovery_url, review_status, exact_license,
+    license_family, source_completeness, authorization_status,
+    provenance_confidence, evidence_confidence, notes, updated_at
+"""
+
+DISCOVERY_EVIDENCE_COLUMNS = """
+    evidence_id, candidate_id, evidence_fingerprint, evidence_source,
+    evidence_url, evidence_title, accessed_at, evidence_type,
+    publisher_or_owner, source_release_date, license_claim,
+    source_scope_claim, authorization_signal, source_completeness_claim,
+    confidence, notes, updated_at
+"""
+
+DISCOVERY_RUN_COLUMNS = """
+    run_id, started_at, completed_at, discovery_source,
+    query_or_collection, status, candidates_found, candidates_added, notes
+"""
+
+
+def normalize_fingerprint(*parts: object) -> str:
+    payload = "|".join(
+        " ".join(str(part or "").split()).strip().casefold()
+        for part in parts
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def read_csv_file(path: Path, required: set[str]):
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        missing = required - set(reader.fieldnames or ())
+        if missing:
+            raise ValueError(f"CSV {path} missing columns: {sorted(missing)}")
+        yield from reader
+
+
+def read_discovery_candidates(path: Path = DISCOVERY_CANDIDATES_PATH):
+    required = {
+        "candidate_id", "game_key", "candidate_title", "original_year", "developer",
+        "linked_game_status", "discovery_sources", "first_discovered_at",
+        "discovery_query", "discovery_url", "review_status", "exact_license",
+        "license_family", "source_completeness", "authorization_status",
+        "provenance_confidence", "evidence_confidence", "notes",
+    }
+    yield from read_csv_file(path, required)
+
+
+def read_discovery_evidence(path: Path = DISCOVERY_EVIDENCE_PATH):
+    required = {
+        "evidence_id", "candidate_id", "evidence_source", "evidence_url",
+        "evidence_title", "accessed_at", "evidence_type", "publisher_or_owner",
+        "source_release_date", "license_claim", "source_scope_claim",
+        "authorization_signal", "source_completeness_claim", "confidence", "notes",
+    }
+    yield from read_csv_file(path, required)
+
+
+def read_discovery_runs(path: Path = DISCOVERY_RUNS_PATH):
+    required = {
+        "run_id", "started_at", "completed_at", "discovery_source",
+        "query_or_collection", "status", "candidates_found", "candidates_added", "notes",
+    }
+    yield from read_csv_file(path, required)
+
+
+def import_discovery_data(
+    candidates_path: Path = DISCOVERY_CANDIDATES_PATH,
+    evidence_path: Path = DISCOVERY_EVIDENCE_PATH,
+    runs_path: Path = DISCOVERY_RUNS_PATH,
+) -> dict[str, int]:
+    init_db()
+    imported = {"candidates": 0, "evidence": 0, "runs": 0}
+
+    with connect() as conn:
+        if candidates_path.exists():
+            for row in read_discovery_candidates(candidates_path):
+                conn.execute(
+                    """
+                    INSERT INTO discovery_candidates (
+                        candidate_id, game_key, candidate_title, original_year, developer,
+                        linked_game_status, discovery_sources, first_discovered_at,
+                        discovery_query, discovery_url, review_status, exact_license,
+                        license_family, source_completeness, authorization_status,
+                        provenance_confidence, evidence_confidence, notes, updated_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    ON CONFLICT(candidate_id) DO UPDATE SET
+                        game_key=excluded.game_key,
+                        candidate_title=excluded.candidate_title,
+                        original_year=excluded.original_year,
+                        developer=excluded.developer,
+                        linked_game_status=excluded.linked_game_status,
+                        discovery_sources=excluded.discovery_sources,
+                        first_discovered_at=excluded.first_discovered_at,
+                        discovery_query=excluded.discovery_query,
+                        discovery_url=excluded.discovery_url,
+                        review_status=excluded.review_status,
+                        exact_license=excluded.exact_license,
+                        license_family=excluded.license_family,
+                        source_completeness=excluded.source_completeness,
+                        authorization_status=excluded.authorization_status,
+                        provenance_confidence=excluded.provenance_confidence,
+                        evidence_confidence=excluded.evidence_confidence,
+                        notes=excluded.notes,
+                        updated_at=excluded.updated_at
+                    """,
+                    (
+                        row["candidate_id"], row["game_key"] or None, row["candidate_title"],
+                        row["original_year"], row["developer"], row["linked_game_status"],
+                        row["discovery_sources"], row["first_discovered_at"],
+                        row["discovery_query"], row["discovery_url"], row["review_status"],
+                        row["exact_license"], row["license_family"], row["source_completeness"],
+                        row["authorization_status"], row["provenance_confidence"],
+                        row["evidence_confidence"], row["notes"], utc_now(),
+                    ),
+                )
+                imported["candidates"] += 1
+
+        if evidence_path.exists():
+            for row in read_discovery_evidence(evidence_path):
+                fingerprint = normalize_fingerprint(
+                    row["candidate_id"], row["evidence_source"], row["evidence_url"],
+                    row["source_release_date"], row["license_claim"],
+                    row["source_scope_claim"], row["authorization_signal"],
+                    row["source_completeness_claim"],
+                )
+                existing = conn.execute(
+                    "SELECT evidence_id FROM discovery_evidence WHERE evidence_fingerprint = ?",
+                    (fingerprint,),
+                ).fetchone()
+                if existing and existing["evidence_id"] != row["evidence_id"]:
+                    conn.execute(
+                        "DELETE FROM discovery_evidence WHERE evidence_id = ?",
+                        (existing["evidence_id"],),
+                    )
+                conn.execute(
+                    """
+                    INSERT INTO discovery_evidence (
+                        evidence_id, candidate_id, evidence_fingerprint,
+                        evidence_source, evidence_url, evidence_title, accessed_at,
+                        evidence_type, publisher_or_owner, source_release_date,
+                        license_claim, source_scope_claim, authorization_signal,
+                        source_completeness_claim, confidence, notes, updated_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    ON CONFLICT(evidence_id) DO UPDATE SET
+                        candidate_id=excluded.candidate_id,
+                        evidence_fingerprint=excluded.evidence_fingerprint,
+                        evidence_source=excluded.evidence_source,
+                        evidence_url=excluded.evidence_url,
+                        evidence_title=excluded.evidence_title,
+                        accessed_at=excluded.accessed_at,
+                        evidence_type=excluded.evidence_type,
+                        publisher_or_owner=excluded.publisher_or_owner,
+                        source_release_date=excluded.source_release_date,
+                        license_claim=excluded.license_claim,
+                        source_scope_claim=excluded.source_scope_claim,
+                        authorization_signal=excluded.authorization_signal,
+                        source_completeness_claim=excluded.source_completeness_claim,
+                        confidence=excluded.confidence,
+                        notes=excluded.notes,
+                        updated_at=excluded.updated_at
+                    """,
+                    (
+                        row["evidence_id"], row["candidate_id"], fingerprint,
+                        row["evidence_source"], row["evidence_url"], row["evidence_title"],
+                        row["accessed_at"], row["evidence_type"],
+                        row["publisher_or_owner"], row["source_release_date"],
+                        row["license_claim"], row["source_scope_claim"],
+                        row["authorization_signal"], row["source_completeness_claim"],
+                        row["confidence"], row["notes"], utc_now(),
+                    ),
+                )
+                imported["evidence"] += 1
+
+        if runs_path.exists():
+            for row in read_discovery_runs(runs_path):
+                conn.execute(
+                    """
+                    INSERT INTO discovery_runs (
+                        run_id, started_at, completed_at, discovery_source,
+                        query_or_collection, status, candidates_found, candidates_added, notes
+                    ) VALUES (?,?,?,?,?,?,?,?,?)
+                    ON CONFLICT(run_id) DO UPDATE SET
+                        started_at=excluded.started_at,
+                        completed_at=excluded.completed_at,
+                        discovery_source=excluded.discovery_source,
+                        query_or_collection=excluded.query_or_collection,
+                        status=excluded.status,
+                        candidates_found=excluded.candidates_found,
+                        candidates_added=excluded.candidates_added,
+                        notes=excluded.notes
+                    """,
+                    (
+                        row["run_id"], row["started_at"], row["completed_at"] or None,
+                        row["discovery_source"], row["query_or_collection"], row["status"],
+                        int(row["candidates_found"] or 0), int(row["candidates_added"] or 0),
+                        row["notes"],
+                    ),
+                )
+                imported["runs"] += 1
+
+        conn.execute(
+            "INSERT INTO metadata(key,value) VALUES('discovery_imported_at',?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (utc_now(),),
+        )
+        conn.commit()
+
+    return imported
+
+
+def discovery_stats() -> dict:
+    ensure_database()
+    with connect() as conn:
+        return {
+            "candidates": conn.execute("SELECT COUNT(*) FROM discovery_candidates").fetchone()[0],
+            "evidence": conn.execute("SELECT COUNT(*) FROM discovery_evidence").fetchone()[0],
+            "runs": conn.execute("SELECT COUNT(*) FROM discovery_runs").fetchone()[0],
+            "resolved_to_canonical": conn.execute(
+                "SELECT COUNT(*) FROM discovery_candidates WHERE linked_game_status='resolved-to-canonical'"
+            ).fetchone()[0],
+            "review_status": [
+                dict(row) for row in conn.execute(
+                    "SELECT review_status, COUNT(*) AS count FROM discovery_candidates "
+                    "GROUP BY review_status ORDER BY count DESC, review_status"
+                )
+            ],
+            "discovery_sources": [
+                dict(row) for row in conn.execute(
+                    """
+                    SELECT source, COUNT(*) AS count
+                    FROM (
+                        SELECT TRIM(value) AS source
+                        FROM discovery_candidates, json_each(
+                            '["' || REPLACE(discovery_sources, ';', '","') || '"]'
+                        )
+                    )
+                    GROUP BY source
+                    ORDER BY count DESC, source
+                    """
+                )
+            ],
+            "authorization_status": [
+                dict(row) for row in conn.execute(
+                    "SELECT COALESCE(authorization_status,'unknown') AS status, COUNT(*) AS count "
+                    "FROM discovery_candidates GROUP BY authorization_status ORDER BY count DESC, status"
+                )
+            ],
+            "source_completeness": [
+                dict(row) for row in conn.execute(
+                    "SELECT COALESCE(source_completeness,'unknown') AS completeness, COUNT(*) AS count "
+                    "FROM discovery_candidates GROUP BY source_completeness ORDER BY count DESC, completeness"
+                )
+            ],
+        }
+
+
+def discovery_search(query: str = "", review_status: str | None = None,
+                     source: str | None = None, limit: int = 50) -> list[dict]:
+    ensure_database()
+    clauses: list[str] = []
+    params: list[object] = []
+    if query:
+        needle = f"%{query}%"
+        clauses.append(
+            "(c.candidate_title LIKE ? OR c.developer LIKE ? OR c.discovery_query LIKE ? "
+            "OR c.discovery_url LIKE ? OR c.exact_license LIKE ? OR c.notes LIKE ?)"
+        )
+        params.extend([needle] * 6)
+    if review_status:
+        clauses.append("c.review_status = ?")
+        params.append(review_status)
+    if source:
+        clauses.append("c.discovery_sources LIKE ?")
+        params.append(f"%{source}%")
+
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    sql = f"""
+        SELECT c.*, COUNT(e.evidence_id) AS evidence_count
+        FROM discovery_candidates AS c
+        LEFT JOIN discovery_evidence AS e ON e.candidate_id = c.candidate_id
+        {where}
+        GROUP BY c.candidate_id
+        ORDER BY
+            CASE c.review_status
+                WHEN 'new' THEN 0
+                WHEN 'needs-verification' THEN 1
+                WHEN 'accepted-canonical-inherited-unreviewed' THEN 2
+                ELSE 3
+            END,
+            c.candidate_title COLLATE NOCASE
+        LIMIT ?
+    """
+    params.append(max(1, min(limit, 500)))
+    with connect() as conn:
+        return [dict(row) for row in conn.execute(sql, params)]
+
+
+def export_discovery(candidates_output: Path, evidence_output: Path,
+                     runs_output: Path) -> dict[str, int]:
+    ensure_database()
+    with connect() as conn:
+        candidates = conn.execute(
+            f"SELECT {DISCOVERY_CANDIDATE_COLUMNS} FROM discovery_candidates ORDER BY candidate_title"
+        ).fetchall()
+        evidence = conn.execute(
+            f"SELECT {DISCOVERY_EVIDENCE_COLUMNS} FROM discovery_evidence ORDER BY candidate_id, evidence_id"
+        ).fetchall()
+        runs = conn.execute(
+            f"SELECT {DISCOVERY_RUN_COLUMNS} FROM discovery_runs ORDER BY started_at"
+        ).fetchall()
+
+    outputs = [
+        (candidates_output, [
+            "candidate_id","game_key","candidate_title","original_year","developer",
+            "linked_game_status","discovery_sources","first_discovered_at","discovery_query",
+            "discovery_url","review_status","exact_license","license_family","source_completeness",
+            "authorization_status","provenance_confidence","evidence_confidence","notes",
+        ], candidates),
+        (evidence_output, [
+            "evidence_id","candidate_id","evidence_source","evidence_url","evidence_title",
+            "accessed_at","evidence_type","publisher_or_owner","source_release_date",
+            "license_claim","source_scope_claim","authorization_signal",
+            "source_completeness_claim","confidence","notes",
+        ], evidence),
+        (runs_output, [
+            "run_id","started_at","completed_at","discovery_source","query_or_collection",
+            "status","candidates_found","candidates_added","notes",
+        ], runs),
+    ]
+    counts: dict[str, int] = {}
+    for output, fields, rows in outputs:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open("w", encoding="utf-8", newline="") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(fields)
+            for row in rows:
+                writer.writerow([
+                    row[field] if field in row.keys() and row[field] is not None else ""
+                    for field in fields
+                ])
+        counts[output.name] = len(rows)
+    return counts
+
+
+def write_discovery_report(output: Path) -> int:
+    rows = discovery_search(limit=500)
+    unresolved = [
+        row for row in rows
+        if row["review_status"] != "accepted-canonical-inherited-unreviewed"
+    ]
+    lines = [
+        "# Discovery Review Report",
+        "",
+        f"Generated: {utc_now()}",
+        "",
+        "| Candidate | Review | Authorization | Completeness | Sources | Evidence |",
+        "|---|---|---|---|---|---:|",
+    ]
+    for row in unresolved:
+        title = str(row["candidate_title"]).replace("|", "\\|")
+        lines.append(
+            f"| {title} | {row['review_status']} | {row['authorization_status'] or 'unknown'} | "
+            f"{row['source_completeness'] or 'unknown'} | {row['discovery_sources']} | "
+            f"{row['evidence_count']} |"
+        )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return len(unresolved)
 
 
 def ensure_database() -> None:
