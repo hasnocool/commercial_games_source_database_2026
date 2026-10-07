@@ -90,3 +90,58 @@ The collector never promotes a record directly into `data/games.csv`.
 A source archive, search result, SteamDB package, IGDB record, GitHub repository, or Wayback capture is an **evidence/discovery lead**. Exact license, source completeness, authorization, and asset scope must be established separately before a candidate is promoted to canonical status.
 
 For automated repeated sweeps, keep the raw JSONL outputs and the run metadata. This makes discovery auditable and enables regression comparisons between runs.
+
+
+## Operational recommendations
+
+Run collectors independently when possible so a failure or rate limit in one service does not discard results from the others.
+
+For example:
+
+```bash
+mkdir -p data/discovery/inbox
+
+python cgsdb.py discover \
+  --sources internet-archive,github,steamdb \
+  --ia-pages 10 \
+  --github-pages 5
+
+python cgsdb.py discover \
+  --sources wayback,developer-site \
+  --wayback-domain https://www.idsoftware.com \
+  --developer-url https://github.com/id-Software/
+
+python cgsdb.py ingest-discovery-inbox data/discovery/inbox/discovery-20261007T160000Z.jsonl
+
+python cgsdb.py discovery-stats
+```
+
+### GitHub pacing
+
+The collector intentionally uses bounded concurrency instead of firing one request per repository simultaneously. GitHub documents both primary and secondary rate limits, including a 5,000-request/hour authenticated primary limit and concurrency/endpoint restrictions on secondary limits. The collector's semaphore, per-host pacing, and retry-after/exponential-backoff handling are designed around those constraints. urlGitHub REST API rate-limit documentationhttps://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
+
+### Internet Archive depth
+
+The default Advanced Search pages are bounded. For very deep archive mining, extend the query/page budget or add a dedicated cursor-based scraper adapter. Internet Archive documents a 10,000-result limit for sorted Advanced Search pagination and a separate scraping API for deeper result traversal. urlInternet Archive item search API documentationhttps://doc-tools.readthedocs.io/en/ia-test-gsod/item-search-apis.html
+
+### Wayback
+
+Wayback CDX is well suited to recovering removed source-release announcements, download pages and repository links. It supports JSON output, filtering, collapsing and pagination/resumption. urlWayback CDX documentationhttps://github.com/internetarchive/wayback/tree/master/wayback-cdx-server
+
+### IGDB
+
+IGDB requires a Twitch developer application and OAuth client-credentials flow. The collector therefore makes IGDB optional: missing credentials produce a recorded collector error rather than stopping the whole sweep. IGDB is used for title/developer/release/platform enrichment, never as a license decision. urlIGDB API documentationhttps://api-docs.igdb.com/
+
+### SteamDB
+
+SteamDB does not expose the same general public REST API surface as GitHub/IGDB for this use case, so the collector uses public HTML search pages and treats the resulting package/app pages as discovery evidence. This is particularly valuable for dedicated source-code packages; SteamDB's Crongdor listing, for example, explicitly describes a complete C++ source package and its GPLv3 terms. urlCrongdor source-code package on SteamDBhttps://steamdb.info/app/488190/subs/
+
+### Raw versus promoted data
+
+Never commit massive raw collector output by default. The recommended pattern is:
+
+```text
+collector → inbox JSONL → review / dedup → provenance CSV + SQLite → canonical games.csv
+```
+
+The JSONL inbox is the reproducible raw discovery artifact. The provenance ledgers are the durable, reviewable representation.
