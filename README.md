@@ -6,7 +6,7 @@ The project keeps the supplied research CSV as the canonical seed dataset and bu
 
 ## Current dataset
 
-- **110 game records**
+- **132 game records**
 - Popularity ranking from the supplied 2026 research
 - Original year and developer
 - Source-release year/status
@@ -20,6 +20,16 @@ The project keeps the supplied research CSV as the canonical seed dataset and bu
 - Optional live GitHub star refresh
 
 The dataset deliberately distinguishes **open source**, **source available**, **proprietary SDK/source**, and **unclear/recovered** cases. It does not redistribute proprietary game source code or commercial assets.
+
+### 2026-10-07 research expansion
+
+This update adds **22 additional commercial games with documented public source releases or source-availability arrangements**, including Little Big Adventure 1/2, Amnesia: A Machine for Pigs, the Blendo Games releases, Pyrodactyl's games, Urban Chaos, Vangers, Perimeter, Toki Tori 2+, Skin Deep, Machines: Wired for War, Towns, Unturned, Barotrauma, Monster RPG 2, and A Dark Room.
+
+The catalog intentionally includes restrictive source releases when they are useful for study/modding, but marks them separately: **Unturned** and **Barotrauma are source-available, not OSI open source**. Their licenses restrict redistribution and/or use to game-specific non-commercial modding. Likewise, engine-only releases such as **Little Big Adventure 1/2** and **Toki Tori 2+** are labeled by source scope rather than being presented as complete asset-free game releases.
+
+New records are appended as ranks **111-132** so the established research ranking remains stable; these are insertion-order ranks, not a claim that the new titles have been globally popularity re-ranked.
+
+Run `python cgsdb.py sync-github` to populate live GitHub star counts for the newly added repositories.
 
 ## Run without installing anything
 
