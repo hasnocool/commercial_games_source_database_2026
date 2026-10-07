@@ -1,0 +1,54 @@
+# Filename: data/discovery/collector.toml
+#
+# High-recall discovery defaults. These are discovery leads, not license proof.
+# Add targeted domains/URLs here as new developers/rightsholders are found.
+
+[internet_archive]
+queries = [
+  "collection:gamesourcecode",
+  "collection:opensource AND mediatype:software AND (game OR "video game")",
+  "title:("source code") AND mediatype:software",
+  "description:("game source code") AND mediatype:software",
+  "subject:("game source code")",
+]
+pages = 5
+rows = 100
+
+[github]
+queries = [
+  ""game source code"",
+  ""source code" game GPL",
+  ""source code" game MIT",
+  ""open source" game engine",
+  ""released source" game",
+  ""commercial game" source code",
+  ""source release" game",
+]
+pages = 3
+
+[steamdb]
+# SteamDB is queried through public HTML search pages because there is no
+# general-purpose public SteamDB API documented for this use case.
+searches = [
+  "source code",
+  "source_code",
+  "open source",
+  "GPL",
+  "MIT",
+]
+
+[wayback]
+# Add developer/publisher domains or exact URLs here.
+domains = [
+  # "https://www.example-game-studio.com",
+]
+
+[developer_site]
+# These should be public developer/rightsholder pages or landing pages.
+urls = [
+  # "https://www.example-game-studio.com/",
+]
+
+[igdb]
+# IGDB is enrichment/cross-checking, not source-license proof.
+titles = []
