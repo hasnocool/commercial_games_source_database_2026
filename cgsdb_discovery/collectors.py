@@ -60,6 +60,22 @@ def first_license(text: str) -> str:
     return normalize_space(match.group(1)) if match else ""
 
 
+def license_family(value: str) -> str:
+    text = (value or "").casefold()
+    if any(x in text for x in (
+        "gpl", "lgpl", "mit", "apache", "bsd", "isc", "mpl", "zlib",
+        "artistic", "cpal",
+    )):
+        return "open-source"
+    if any(x in text for x in ("public domain", "cc0", "unlicense")):
+        return "public-domain"
+    if any(x in text for x in ("source available", "source-available", "source released")):
+        return "source-available"
+    if any(x in text for x in ("proprietary", "sdk")):
+        return "proprietary/source-sdk"
+    return "unclear"
+
+
 def candidate_from_text(
     *,
     title: str,
@@ -83,6 +99,7 @@ def candidate_from_text(
         discovery_url=url,
         review_status="new",
         exact_license=license_hint or first_license(snippet),
+        license_family=license_family(license_hint or first_license(snippet)),
         source_completeness=completeness,
         authorization_status=authorization,
         provenance_confidence="medium" if source in {"developer-site", "github"} else "low",
