@@ -1244,6 +1244,11 @@ def parser() -> argparse.ArgumentParser:
     discover.add_argument("--concurrency", type=int, default=8)
     discover.add_argument("--per-host-delay", type=float, default=0.35)
     discover.add_argument("--output", type=Path)
+    discover.add_argument(
+        "--config",
+        type=Path,
+        default=DISCOVERY_DIR / "collector.toml",
+    )
 
     inbox = sub.add_parser(
         "ingest-discovery-inbox",
@@ -1300,7 +1305,9 @@ def main() -> None:
 
         output = args.output
         if output is None:
-            output = DISCOVERY_DIR / "inbox" / "latest.jsonl"
+            output = DISCOVERY_DIR / "inbox" / (
+                f"discovery-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.jsonl"
+            )
         run, candidates = asyncio.run(
             run_discovery(
                 sources=[x.strip() for x in args.sources.split(",") if x.strip()],
@@ -1318,6 +1325,7 @@ def main() -> None:
                 igdb_client_id=os.getenv("IGDB_CLIENT_ID", ""),
                 igdb_client_secret=os.getenv("IGDB_CLIENT_SECRET", ""),
                 output=output,
+                config_path=args.config,
             )
         )
         print(json.dumps({
