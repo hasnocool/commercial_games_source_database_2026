@@ -106,6 +106,7 @@ async def run_discovery(
     igdb_client_id: str = "",
     igdb_client_secret: str = "",
     output: Path | None = None,
+    config_path: Path | None = None,
 ) -> tuple[DiscoveryRun, list[CandidateRecord]]:
     config = load_config(config_path)
     configured_ia = config.get("internet_archive", {})
