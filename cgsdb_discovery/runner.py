@@ -78,6 +78,14 @@ def merge_candidates(candidates: Iterable[CandidateRecord]) -> list[CandidateRec
     return list(merged.values())
 
 
+
+def load_config(path: Path | None) -> dict:
+    if path is None or not path.exists():
+        return {}
+    import tomllib
+    with path.open("rb") as handle:
+        return tomllib.load(handle)
+
 async def run_discovery(
     *,
     sources: list[str] | None = None,
@@ -99,6 +107,13 @@ async def run_discovery(
     igdb_client_secret: str = "",
     output: Path | None = None,
 ) -> tuple[DiscoveryRun, list[CandidateRecord]]:
+    config = load_config(config_path)
+    configured_ia = config.get("internet_archive", {})
+    configured_gh = config.get("github", {})
+    configured_wb = config.get("wayback", {})
+    configured_dev = config.get("developer_site", {})
+    configured_igdb = config.get("igdb", {})
+
     selected = set(sources or [
         "internet-archive",
         "github",
@@ -122,31 +137,32 @@ async def run_discovery(
             ia = InternetArchiveCollector(client)
             tasks.append(
                 ia.collect(
-                    internet_archive_queries or DEFAULT_IA_QUERIES,
-                    pages=ia_pages,
-                    rows=ia_rows,
+                    (internet_archive_queries or configured_ia.get("queries") or DEFAULT_IA_QUERIES),
+                    pages=max(1, int(configured_ia.get("pages", ia_pages))),
+                    rows=max(1, min(int(configured_ia.get("rows", ia_rows)), 10000)),
                 )
             )
         if "github" in selected:
             gh = GitHubCollector(client, github_token or os.getenv("GITHUB_TOKEN", ""))
             tasks.append(
                 gh.collect(
-                    github_queries or DEFAULT_GITHUB_QUERIES,
-                    pages=github_pages,
+                    (github_queries or configured_gh.get("queries") or DEFAULT_GITHUB_QUERIES),
+                    pages=max(1, int(configured_gh.get("pages", github_pages))),
                 )
             )
         if "steamdb" in selected:
             tasks.append(SteamDBCollector(client).collect())
         if "wayback" in selected:
             wb = WaybackCollector(client)
-            for domain in wayback_domains or []:
+            for domain in (wayback_domains or configured_wb.get("domains") or []):
                 tasks.append(wb.domain(domain, limit=wayback_limit))
         if "developer-site" in selected:
             dev = DeveloperSiteCollector(client)
-            if developer_urls:
+            urls = developer_urls or configured_dev.get("urls") or []
+            if urls:
                 tasks.append(
                     dev.crawl(
-                        developer_urls,
+                        urls,
                         max_pages=developer_max_pages,
                         max_depth=developer_max_depth,
                     )
@@ -163,7 +179,7 @@ async def run_discovery(
         if "igdb" in selected and (igdb_titles or all_candidates):
             if igdb_client_id and igdb_client_secret:
                 igdb = IGDBCollector(client, igdb_client_id, igdb_client_secret)
-                titles = igdb_titles or [
+                titles = igdb_titles or configured_igdb.get("titles") or [
                     candidate.candidate_title
                     for candidate in all_candidates
                     if candidate.candidate_title
@@ -230,6 +246,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--concurrency", type=int, default=8)
     parser.add_argument("--per-host-delay", type=float, default=0.35)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--config", type=Path, default=Path("data/discovery/collector.toml"))
     return parser
 
 
@@ -252,6 +269,7 @@ def main() -> None:
             igdb_client_id=os.getenv("IGDB_CLIENT_ID", ""),
             igdb_client_secret=os.getenv("IGDB_CLIENT_SECRET", ""),
             output=args.output,
+            config_path=args.config,
         )
     )
     print(json.dumps({
