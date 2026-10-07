@@ -1,0 +1,10 @@
+source_id,source_name,source_type,discovery_role,trust_role,notes
+internet-archive,Internet Archive,archive,high-recall-discovery,preservation-evidence,"Search source-code collections and historical game/software archives; verify provenance and license separately."
+steamdb,SteamDB,commercial-database,commercial-release-and-package-discovery,metadata-evidence,"Useful for Steam apps, packages, depots, source-code packages, release dates and commercial identity."
+igdb,IGDB,commercial-database,commercial-game-identity-discovery,metadata-evidence,"Cross-check title, developer, release/platform metadata; do not use it alone to establish source licensing."
+github,GitHub,code-hosting,repository-discovery-and-license-review,primary-or-secondary-evidence,"Prefer developer/rightsholder repositories and inspect LICENSE/COPYING/history."
+wayback,Wayback Machine,archive,dead-link-and-historical-page-recovery,historical-evidence,"Recover removed source-release pages, developer announcements, download links and documentation."
+developer-site,Developer / Rightsholder site,primary,authorization-and-license-verification,primary-evidence,"Strongest evidence for an authorized source release, licensing terms and source scope."
+secondary-research,Secondary source/research list,secondary,high-recall-candidate-discovery,secondary-evidence,"Useful index only; follow its citations to primary evidence."
+preservation-archive,Preservation archive,archive,historical-source-discovery,historical-evidence,"Use for old platform source and source snapshots; license may remain unresolved."
+manual,Manual research,manual,targeted-candidate-discovery,review-evidence,"Human-entered lead or direct contact; record supporting evidence separately."
