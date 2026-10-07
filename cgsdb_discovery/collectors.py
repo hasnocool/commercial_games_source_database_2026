@@ -229,7 +229,10 @@ class InternetArchiveCollector:
                         url=url,
                         query=query,
                         snippet=(
-                        license_hint=license_url,
+                            description
+                            + (f" license_url={license_url}" if license_url else "")
+                            + (f" collections={';'.join(collections)}" if collections else "")
+                        ),
                         release_date=normalize_space(doc.get("date") or doc.get("year") or ""),
                         source_scope="archive-item",
                         completeness="unknown",
