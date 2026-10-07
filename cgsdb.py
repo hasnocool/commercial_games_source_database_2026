@@ -880,6 +880,8 @@ def self_test() -> int:
     payload = stats()
     doom = get_game("doom")
     quake = search_games("quake")
+    discovery = import_discovery_data()
+    d_stats = discovery_stats()
 
     checks = {
         "dataset imported": count >= 100,
@@ -888,6 +890,9 @@ def self_test() -> int:
         "DOOM is open source classified": doom is not None and doom["license_family"] == "open-source",
         "Quake search works": any(x["game"] == "Quake" for x in quake),
         "GitHub repositories parsed": payload["with_github_repo"] > 0,
+        "Discovery candidates imported": d_stats["candidates"] >= 200,
+        "Discovery evidence imported": d_stats["evidence"] >= 300,
+        "Discovery runs imported": d_stats["runs"] >= 1,
     }
 
     for label, ok in checks.items():
@@ -995,6 +1000,35 @@ def parser() -> argparse.ArgumentParser:
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8080)
 
+    discovery_import = sub.add_parser(
+        "import-discovery",
+        help="import discovery candidates, evidence, and run ledgers",
+    )
+    discovery_import.add_argument("--candidates", type=Path, default=DISCOVERY_CANDIDATES_PATH)
+    discovery_import.add_argument("--evidence", type=Path, default=DISCOVERY_EVIDENCE_PATH)
+    discovery_import.add_argument("--runs", type=Path, default=DISCOVERY_RUNS_PATH)
+
+    discovery_stat = sub.add_parser("discovery-stats", help="show discovery/provenance statistics")
+    discovery_stat.add_argument("--json", action="store_true")
+
+    discovery = sub.add_parser("discovery-search", help="search discovery candidates")
+    discovery.add_argument("query", nargs="?", default="")
+    discovery.add_argument("--review-status")
+    discovery.add_argument("--source")
+    discovery.add_argument("--limit", type=int, default=50)
+    discovery.add_argument("--json", action="store_true")
+
+    discovery_export = sub.add_parser("export-discovery", help="export discovery ledgers")
+    discovery_export.add_argument("--candidates", type=Path, default=DISCOVERY_CANDIDATES_PATH)
+    discovery_export.add_argument("--evidence", type=Path, default=DISCOVERY_EVIDENCE_PATH)
+    discovery_export.add_argument("--runs", type=Path, default=DISCOVERY_RUNS_PATH)
+
+    discovery_report = sub.add_parser(
+        "discovery-report",
+        help="write a Markdown discovery review report",
+    )
+    discovery_report.add_argument("output", type=Path)
+
     sub.add_parser("self-test", help="run local database/application checks")
     return p
 
@@ -1004,7 +1038,9 @@ def main() -> None:
 
     if args.command == "init":
         count = import_csv(args.csv)
+        discovery = import_discovery_data()
         print(f"Imported {count} games into {DB_PATH}")
+        print(json.dumps({"discovery": discovery}, indent=2))
     elif args.command == "search":
         rows = search_games(
             args.query,
@@ -1037,6 +1073,45 @@ def main() -> None:
             print(f"Average candidate score: {payload['avg_rust_score']}")
     elif args.command == "sync-github":
         print(json.dumps(sync_github(args.limit, args.delay), indent=2))
+    elif args.command == "import-discovery":
+        print(json.dumps(
+            import_discovery_data(args.candidates, args.evidence, args.runs),
+            indent=2,
+        ))
+    elif args.command == "discovery-stats":
+        payload = discovery_stats()
+        if args.json:
+            print(json.dumps(payload, indent=2))
+            return
+        print(f"Candidates: {payload['candidates']}")
+        print(f"Evidence: {payload['evidence']}")
+        print(f"Runs: {payload['runs']}")
+        print(f"Resolved to canonical: {payload['resolved_to_canonical']}")
+        print("Review status:")
+        for item in payload["review_status"]:
+            print(f"  {item['review_status']}: {item['count']}")
+        print("Discovery sources:")
+        for item in payload["discovery_sources"]:
+            print(f"  {item['source']}: {item['count']}")
+    elif args.command == "discovery-search":
+        rows = discovery_search(args.query, args.review_status, args.source, args.limit)
+        if args.json:
+            print(json.dumps(rows, ensure_ascii=False, indent=2))
+            return
+        for row in rows:
+            print(
+                f"{row['candidate_title']} | {row['review_status']} | "
+                f"{row['authorization_status'] or 'unknown'} | "
+                f"{row['source_completeness'] or 'unknown'} | "
+                f"evidence={row['evidence_count']} | {row['discovery_sources']}"
+            )
+    elif args.command == "export-discovery":
+        print(json.dumps(
+            export_discovery(args.candidates, args.evidence, args.runs),
+            indent=2,
+        ))
+    elif args.command == "discovery-report":
+        print(f"Wrote {write_discovery_report(args.output)} priority candidates to {args.output}")
     elif args.command == "export":
         print(f"Exported {export_csv(args.output)} games to {args.output}")
     elif args.command == "serve":
