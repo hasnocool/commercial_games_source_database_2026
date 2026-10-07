@@ -91,7 +91,7 @@ class CandidateRecord:
         return stable_id(
             "cand",
             self.game_key or game_key(self.candidate_title),
-            self.discovery_url,
+            self.developer,
         )
 
     def normalize(self) -> None:
