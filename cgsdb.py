@@ -25,7 +25,7 @@ CSV_PATH = DATA_DIR / "games.csv"
 DB_PATH = DATA_DIR / "games.db"
 SCHEMA_VERSION = 1
 
-GITHUB_RE = re.compile(r"https?://github\\.com/([^/]+)/([^/#?]+)", re.IGNORECASE)
+GITHUB_RE = re.compile(r"https?://github\.com/([^/]+)/([^/#?]+)", re.IGNORECASE)
 NON_ALNUM = re.compile(r"[^a-z0-9]+")
 
 CREATE_SQL = """
