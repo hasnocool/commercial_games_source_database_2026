@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Commercial Games Source Database discovery layer",
+  "description": "Machine-readable contract for discovery/provenance CSV ledgers.",
+  "definitions": {
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "unknown"
+      ]
+    },
+    "review_status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "needs-verification",
+        "accepted-canonical",
+        "accepted-canonical-inherited-unreviewed",
+        "rejected",
+        "duplicate",
+        "unauthorized"
+      ]
+    },
+    "source_completeness": {
+      "type": "string",
+      "enum": [
+        "complete-game",
+        "game-source",
+        "game-source-assets-separate",
+        "near-complete",
+        "partial-game",
+        "engine-only",
+        "server-only",
+        "sdk-only",
+        "source-snapshot",
+        "unknown"
+      ]
+    },
+    "authorization_status": {
+      "type": "string",
+      "enum": [
+        "authorized",
+        "authorized-restricted-or-unknown",
+        "unauthorized-or-unresolved",
+        "unknown"
+      ]
+    }
+  },
+  "candidate_required": [
+    "candidate_id",
+    "candidate_title",
+    "linked_game_status",
+    "discovery_sources",
+    "review_status"
+  ],
+  "evidence_required": [
+    "evidence_id",
+    "candidate_id",
+    "evidence_source",
+    "evidence_url",
+    "evidence_type"
+  ],
+  "run_required": [
+    "run_id",
+    "started_at",
+    "discovery_source",
+    "query_or_collection",
+    "status"
+  ]
+}
