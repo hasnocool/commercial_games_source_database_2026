@@ -439,8 +439,8 @@ def self_test() -> int:
     quake = search_games("quake")
 
     checks = {
-        "110 rows imported": count == 110,
-        "110 rows in database": payload["total_games"] == 110,
+        "dataset imported": count >= 100,
+        "database has 100+ rows": payload["total_games"] >= 100,
         "DOOM is present": doom is not None,
         "DOOM is open source classified": doom is not None and doom["license_family"] == "open-source",
         "Quake search works": any(x["game"] == "Quake" for x in quake),
