@@ -228,7 +228,7 @@ class InternetArchiveCollector:
                         source=self.name,
                         url=url,
                         query=query,
-                        snippet=description or f"Internet Archive collection: {', '.join(collections)}",
+                        snippet=(
                         license_hint=license_url,
                         release_date=normalize_space(doc.get("date") or doc.get("year") or ""),
                         source_scope="archive-item",
@@ -342,9 +342,19 @@ class SteamDBCollector:
         "https://steamdb.info/search/?a=app&q=MIT",
     )
 
-    def __init__(self, client: AsyncHttpClient) -> None:
+    def __init__(
+        self,
+        client: AsyncHttpClient,
+        searches: list[str] | None = None,
+    ) -> None:
         self.client = client
-
+        self.searches = searches or [
+            "source code",
+            "source_code",
+            "open source",
+            "GPL",
+            "MIT",
+        ]
     async def fetch_search(self, url: str) -> CollectorResult:
         candidates: list[CandidateRecord] = []
         errors: list[dict[str, str]] = []
@@ -401,8 +411,12 @@ class SteamDBCollector:
         return CollectorResult(self.name, candidates, errors)
 
     async def collect(self) -> CollectorResult:
+        search_urls = [
+            f"https://steamdb.info/search/?a=app&q={quote_plus(term)}"
+            for term in self.searches
+        ]
         results = await asyncio.gather(
-            *(self.fetch_search(url) for url in self.SEARCH_URLS),
+            *(self.fetch_search(url) for url in search_urls),
             return_exceptions=True,
         )
         candidates: list[CandidateRecord] = []
