@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import argparse
 import csv
 import hashlib
@@ -688,6 +689,201 @@ def write_discovery_report(output: Path) -> int:
     return len(unresolved)
 
 
+def iter_discovery_jsonl(path: Path):
+    with path.open("r", encoding="utf-8") as fh:
+        for line_number, line in enumerate(fh, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"Invalid discovery JSONL at {path}:{line_number}: {exc}"
+                ) from exc
+
+
+def import_discovery_jsonl(path: Path) -> dict[str, int]:
+    init_db()
+    imported = {"candidates": 0, "evidence": 0, "runs": 0}
+    run_path = path.with_suffix(path.suffix + ".run.json")
+
+    with connect() as conn:
+        for payload in iter_discovery_jsonl(path):
+            candidate_id = str(payload.get("candidate_id") or "").strip()
+            title = str(payload.get("candidate_title") or "").strip()
+            if not candidate_id or not title:
+                continue
+
+            discovery_sources = payload.get("discovery_sources") or []
+            if isinstance(discovery_sources, str):
+                discovery_sources = [discovery_sources]
+            discovery_sources = ";".join(
+                sorted({str(x).strip() for x in discovery_sources if str(x).strip()})
+            ) or "unknown"
+
+            conn.execute(
+                """
+                INSERT INTO discovery_candidates (
+                    candidate_id, game_key, candidate_title, original_year, developer,
+                    linked_game_status, discovery_sources, first_discovered_at,
+                    discovery_query, discovery_url, review_status, exact_license,
+                    license_family, source_completeness, authorization_status,
+                    provenance_confidence, evidence_confidence, notes, updated_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(candidate_id) DO UPDATE SET
+                    game_key=excluded.game_key,
+                    candidate_title=excluded.candidate_title,
+                    original_year=excluded.original_year,
+                    developer=excluded.developer,
+                    linked_game_status=excluded.linked_game_status,
+                    discovery_sources=excluded.discovery_sources,
+                    first_discovered_at=excluded.first_discovered_at,
+                    discovery_query=excluded.discovery_query,
+                    discovery_url=excluded.discovery_url,
+                    review_status=excluded.review_status,
+                    exact_license=excluded.exact_license,
+                    license_family=excluded.license_family,
+                    source_completeness=excluded.source_completeness,
+                    authorization_status=excluded.authorization_status,
+                    provenance_confidence=excluded.provenance_confidence,
+                    evidence_confidence=excluded.evidence_confidence,
+                    notes=excluded.notes,
+                    updated_at=excluded.updated_at
+                """,
+                (
+                    candidate_id,
+                    payload.get("game_key") or None,
+                    title,
+                    payload.get("original_year", ""),
+                    payload.get("developer", ""),
+                    payload.get("linked_game_status", "unresolved"),
+                    discovery_sources,
+                    payload.get("first_discovered_at", ""),
+                    payload.get("discovery_query", ""),
+                    payload.get("discovery_url", ""),
+                    payload.get("review_status", "new"),
+                    payload.get("exact_license", ""),
+                    payload.get("license_family", ""),
+                    payload.get("source_completeness", "unknown"),
+                    payload.get("authorization_status", "unknown"),
+                    payload.get("provenance_confidence", "low"),
+                    payload.get("evidence_confidence", "low"),
+                    payload.get("notes", ""),
+                    utc_now(),
+                ),
+            )
+            imported["candidates"] += 1
+
+            for evidence in payload.get("evidence") or []:
+                evidence_id = str(evidence.get("evidence_id") or "").strip()
+                evidence_url = str(evidence.get("evidence_url") or "").strip()
+                evidence_source = str(evidence.get("evidence_source") or "").strip()
+                if not evidence_id or not evidence_url or not evidence_source:
+                    continue
+
+                fingerprint = str(
+                    evidence.get("evidence_fingerprint")
+                    or normalize_fingerprint(
+                        candidate_id,
+                        evidence_source,
+                        evidence_url,
+                        evidence.get("source_release_date", ""),
+                        evidence.get("license_claim", ""),
+                        evidence.get("source_scope_claim", ""),
+                        evidence.get("authorization_signal", ""),
+                        evidence.get("source_completeness_claim", ""),
+                    )
+                )
+
+                conn.execute(
+                    """
+                    DELETE FROM discovery_evidence
+                    WHERE evidence_id = ?
+                       OR (evidence_fingerprint = ? AND evidence_id != ?)
+                    """,
+                    (evidence_id, fingerprint, evidence_id),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO discovery_evidence (
+                        evidence_id, candidate_id, evidence_fingerprint,
+                        evidence_source, evidence_url, evidence_title, accessed_at,
+                        evidence_type, publisher_or_owner, source_release_date,
+                        license_claim, source_scope_claim, authorization_signal,
+                        source_completeness_claim, confidence, notes, updated_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        evidence_id,
+                        candidate_id,
+                        fingerprint,
+                        evidence_source,
+                        evidence_url,
+                        evidence.get("evidence_title", ""),
+                        evidence.get("accessed_at", ""),
+                        evidence.get("evidence_type", "discovery"),
+                        evidence.get("publisher_or_owner", ""),
+                        evidence.get("source_release_date", ""),
+                        evidence.get("license_claim", ""),
+                        evidence.get("source_scope_claim", ""),
+                        evidence.get("authorization_signal", ""),
+                        evidence.get("source_completeness_claim", ""),
+                        evidence.get("confidence", "low"),
+                        evidence.get("notes", ""),
+                        utc_now(),
+                    ),
+                )
+                imported["evidence"] += 1
+
+        if run_path.exists():
+            run = json.loads(run_path.read_text(encoding="utf-8"))
+            conn.execute(
+                """
+                INSERT INTO discovery_runs (
+                    run_id, started_at, completed_at, discovery_source,
+                    query_or_collection, status, candidates_found, candidates_added, notes
+                ) VALUES (?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(run_id) DO UPDATE SET
+                    started_at=excluded.started_at,
+                    completed_at=excluded.completed_at,
+                    discovery_source=excluded.discovery_source,
+                    query_or_collection=excluded.query_or_collection,
+                    status=excluded.status,
+                    candidates_found=excluded.candidates_found,
+                    candidates_added=excluded.candidates_added,
+                    notes=excluded.notes
+                """,
+                (
+                    run.get("run_id", run_path.stem),
+                    run.get("started_at", ""),
+                    run.get("completed_at", ""),
+                    run.get("discovery_source", ""),
+                    run.get("query_or_collection", ""),
+                    run.get("status", "completed"),
+                    int(run.get("candidates_found", 0)),
+                    int(run.get("candidates_added", 0)),
+                    run.get("notes", ""),
+                ),
+            )
+            imported["runs"] += 1
+
+        conn.execute(
+            "INSERT INTO metadata(key,value) VALUES('discovery_inbox_imported_at',?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (utc_now(),),
+        )
+        conn.commit()
+
+    # Keep the human-reviewable CSV ledgers synchronized with SQLite.
+    export_discovery(
+        DISCOVERY_CANDIDATES_PATH,
+        DISCOVERY_EVIDENCE_PATH,
+        DISCOVERY_RUNS_PATH,
+    )
+    return imported
+
+
 def ensure_database() -> None:
     if not DB_PATH.exists():
         import_csv()
@@ -1028,6 +1224,33 @@ def parser() -> argparse.ArgumentParser:
     )
     discovery_report.add_argument("output", type=Path)
 
+
+    discover = sub.add_parser(
+        "discover",
+        help="run high-recall web discovery collectors and write JSONL staging output",
+    )
+    discover.add_argument(
+        "--sources",
+        default="internet-archive,github,steamdb,wayback,developer-site,igdb",
+    )
+    discover.add_argument("--ia-query", action="append", dest="ia_queries")
+    discover.add_argument("--ia-pages", type=int, default=5)
+    discover.add_argument("--ia-rows", type=int, default=100)
+    discover.add_argument("--github-query", action="append", dest="github_queries")
+    discover.add_argument("--github-pages", type=int, default=3)
+    discover.add_argument("--wayback-domain", action="append", dest="wayback_domains")
+    discover.add_argument("--developer-url", action="append", dest="developer_urls")
+    discover.add_argument("--igdb-title", action="append", dest="igdb_titles")
+    discover.add_argument("--concurrency", type=int, default=8)
+    discover.add_argument("--per-host-delay", type=float, default=0.35)
+    discover.add_argument("--output", type=Path)
+
+    inbox = sub.add_parser(
+        "ingest-discovery-inbox",
+        help="promote one collector JSONL run into the provenance ledgers",
+    )
+    inbox.add_argument("path", type=Path)
+
     sub.add_parser("self-test", help="run local database/application checks")
     return p
 
@@ -1072,6 +1295,39 @@ def main() -> None:
             print(f"Average candidate score: {payload['avg_rust_score']}")
     elif args.command == "sync-github":
         print(json.dumps(sync_github(args.limit, args.delay), indent=2))
+    elif args.command == "discover":
+        from cgsdb_discovery.runner import run_discovery
+
+        output = args.output
+        if output is None:
+            output = DISCOVERY_DIR / "inbox" / "latest.jsonl"
+        run, candidates = asyncio.run(
+            run_discovery(
+                sources=[x.strip() for x in args.sources.split(",") if x.strip()],
+                internet_archive_queries=args.ia_queries,
+                github_queries=args.github_queries,
+                wayback_domains=args.wayback_domains,
+                developer_urls=args.developer_urls,
+                igdb_titles=args.igdb_titles,
+                ia_pages=max(1, args.ia_pages),
+                ia_rows=max(1, min(args.ia_rows, 10000)),
+                github_pages=max(1, args.github_pages),
+                concurrency=max(1, min(args.concurrency, 32)),
+                per_host_delay=max(0.0, args.per_host_delay),
+                github_token=os.getenv("GITHUB_TOKEN", ""),
+                igdb_client_id=os.getenv("IGDB_CLIENT_ID", ""),
+                igdb_client_secret=os.getenv("IGDB_CLIENT_SECRET", ""),
+                output=output,
+            )
+        )
+        print(json.dumps({
+            "run": run.to_json(),
+            "candidates": len(candidates),
+            "output": str(output),
+            "ingest_command": f"python cgsdb.py ingest-discovery-inbox {output}",
+        }, ensure_ascii=False, indent=2))
+    elif args.command == "ingest-discovery-inbox":
+        print(json.dumps(import_discovery_jsonl(args.path), indent=2))
     elif args.command == "import-discovery":
         print(json.dumps(
             import_discovery_data(args.candidates, args.evidence, args.runs),
