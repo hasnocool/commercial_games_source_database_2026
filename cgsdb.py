@@ -444,15 +444,14 @@ def import_discovery_data(
                     row["source_scope_claim"], row["authorization_signal"],
                     row["source_completeness_claim"],
                 )
-                existing = conn.execute(
-                    "SELECT evidence_id FROM discovery_evidence WHERE evidence_fingerprint = ?",
-                    (fingerprint,),
-                ).fetchone()
-                if existing and existing["evidence_id"] != row["evidence_id"]:
-                    conn.execute(
-                        "DELETE FROM discovery_evidence WHERE evidence_id = ?",
-                        (existing["evidence_id"],),
-                    )
+                conn.execute(
+                    """
+                    DELETE FROM discovery_evidence
+                    WHERE evidence_id = ?
+                       OR (evidence_fingerprint = ? AND evidence_id != ?)
+                    """,
+                    (row["evidence_id"], fingerprint, row["evidence_id"]),
+                )
                 conn.execute(
                     """
                     INSERT INTO discovery_evidence (
