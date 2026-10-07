@@ -93,7 +93,7 @@ def parse_github(url: str) -> tuple[str | None, str | None]:
 
 def classify_license(value: str) -> str:
     text = (value or "").lower()
-    if any(x in text for x in ("gpl", "lgpl", "mit", "apache", "bsd", "isc")):
+    if any(x in text for x in ("gpl", "lgpl", "mit", "apache", "bsd", "isc", "mpl", "mozilla public license", "zlib")):
         return "open-source"
     if "public domain" in text:
         return "public-domain"
