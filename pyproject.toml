@@ -9,7 +9,7 @@ description = "Local-first database and dashboard for commercial games with late
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [{name = "hasnocool"}]
-dependencies = []
+dependencies = ["aiohttp>=3.14.4,<3.15"]
 
 [tool.setuptools]
 py-modules = ["cgsdb"]
