@@ -198,7 +198,7 @@ async def run_discovery(
             elif "igdb" in selected:
                 errors.append({
                     "collector": "igdb",
-                    "error": "IGDB_CLIENT_ID and IGDB_CLIENT_SECRET are required",
+                    "error": "skipped: IGDB_CLIENT_ID and IGDB_CLIENT_SECRET are not configured",
                 })
 
     merged = merge_candidates(all_candidates)
@@ -209,7 +209,9 @@ async def run_discovery(
         completed_at=completed,
         discovery_source=";".join(sorted(selected)),
         query_or_collection="configured high-recall discovery sweep",
-        status="completed" if not errors else "completed-with-errors",
+        status="completed" if not errors or all(
+            error.get("error", "").startswith("skipped:") for error in errors
+        ) else "completed-with-errors",
         candidates_found=len(merged),
         candidates_added=0,
         notes=json.dumps({"errors": errors}, ensure_ascii=False),
