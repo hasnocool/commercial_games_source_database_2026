@@ -1,0 +1,3 @@
+run_id,started_at,completed_at,discovery_source,query_or_collection,status,candidates_found,candidates_added,notes
+run-2026-10-07-deep-sweep,2026-10-07T22:00:00Z,2026-10-07T23:20:00Z,internet-archive;steamdb;igdb;github;web-research,commercial game source release discovery,completed,36,36,Deep sweep producing PR #3; source evidence should be refreshed into individual evidence rows.
+run-2026-10-07-provenance-bootstrap,2026-10-07,2026-10-07,canonical-dataset,bootstrap existing 227 canonical games,completed,227,0,Existing rows are linked into provenance as inherited/unreviewed until primary evidence is refreshed.
