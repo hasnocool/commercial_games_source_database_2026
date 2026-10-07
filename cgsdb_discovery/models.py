@@ -88,11 +88,9 @@ class CandidateRecord:
 
     @property
     def candidate_id(self) -> str:
-        return stable_id(
-            "cand",
-            self.game_key or game_key(self.candidate_title),
-            self.developer,
-        )
+        # Candidate identity is title/game-key based so the same game converges
+        # across GitHub, Internet Archive, SteamDB, IGDB and Wayback discoveries.
+        return f"cand-{self.game_key or game_key(self.candidate_title)}"
 
     def normalize(self) -> None:
         self.game_key = self.game_key or game_key(self.candidate_title)
