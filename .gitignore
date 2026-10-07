@@ -13,3 +13,7 @@ venv/
 # Local secrets
 .env
 .env.*
+
+# Raw discovery collector outputs stay local by default.
+data/discovery/inbox/*.jsonl
+data/discovery/inbox/*.jsonl.run.json
