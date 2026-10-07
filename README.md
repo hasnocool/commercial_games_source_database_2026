@@ -55,6 +55,65 @@ The new records include platform-specific source releases (3DO, SNES, Jaguar, Ap
 
 The catalog now contains **227 records**. This is deliberately a high-recall preservation database: a public source archive is valuable even when its license is not yet resolved, provided the provenance and limitations are explicit.
 
+### High-recall discovery collectors
+
+The repository now includes asynchronous discovery collectors for **Internet Archive, GitHub, SteamDB, Wayback, developer/rightsholder sites, and IGDB**.
+
+Install the optional collector dependency:
+
+```bash
+python -m pip install -e .
+```
+
+Run a broad discovery sweep into the local inbox:
+
+```bash
+python cgsdb.py discover
+```
+
+Target individual sources:
+
+```bash
+python cgsdb.py discover --sources internet-archive --ia-pages 20
+GITHUB_TOKEN=... python cgsdb.py discover --sources github --github-pages 10
+python cgsdb.py discover --sources steamdb
+python cgsdb.py discover --sources wayback --wayback-domain https://example.com
+python cgsdb.py discover --sources developer-site --developer-url https://example.com/
+IGDB_CLIENT_ID=... IGDB_CLIENT_SECRET=... python cgsdb.py discover --sources igdb --igdb-title "Star Ruler 2"
+```
+
+The default configuration lives in `data/discovery/collector.toml`. Raw JSONL discovery output is ignored by Git by default so large sweeps do not accidentally inflate the repository.
+
+Promote a completed raw run into the machine-readable provenance ledgers:
+
+```bash
+python cgsdb.py ingest-discovery-inbox data/discovery/inbox/discovery-YYYYMMDDTHHMMSSZ.jsonl
+python cgsdb.py discovery-stats
+python cgsdb.py discovery-search --review-status new
+```
+
+The flow is:
+
+```text
+Internet Archive / SteamDB / IGDB / GitHub / Wayback / developer sites
+                              │
+                              ▼
+                       async collectors
+                              │
+                              ▼
+                         JSONL inbox
+                              │
+                       dedup + review
+                              │
+                              ▼
+                 provenance CSV + SQLite
+                              │
+                       manual verification
+                              │
+                              ▼
+                     canonical games.csv
+```
+
 ## Run without installing anything
 
 Python 3.12+ and the standard library are enough:
