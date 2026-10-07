@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Commercial Games Source Database 2026</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+body{margin:0;background:#0d1117;color:#e6edf3}
+header{border-bottom:1px solid #30363d;background:#161b22}
+header .wrap,main{max-width:1500px;margin:auto;padding:24px 4vw}
+h1{margin:0 0 8px;font-size:clamp(26px,4vw,42px)}
+p{color:#9da7b3}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin-bottom:18px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:15px}
+.num{font-size:28px;font-weight:700;margin-top:4px}
+.controls{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;margin-bottom:15px}
+input,select,button{width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:7px;padding:10px}
+button{cursor:pointer}
+.table-wrap{overflow:auto;border:1px solid #30363d;border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:1180px}
+th,td{padding:10px 12px;border-bottom:1px solid #21262d;text-align:left;vertical-align:top}
+th{position:sticky;top:0;background:#161b22;z-index:1}
+.score{font-weight:700}
+.badge{display:inline-block;border:1px solid #30363d;border-radius:999px;padding:2px 7px;font-size:12px;color:#9da7b3}
+.empty{text-align:center;padding:40px;color:#8b949e}
+a{color:#58a6ff}
+@media(max-width:800px){.controls{grid-template-columns:1fr 1fr}.controls input{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>Commercial Games Source Database 2026</h1><p>110 historically significant commercial games with later-released source code, ranked for preservation and new source-port research.</p></div></header>
+<main>
+<section id="stats" class="stats"></section>
+<section class="controls">
+<input id="q" placeholder="Search title, developer, architecture, port, notes…">
+<select id="license"><option value="">All license groups</option><option value="open-source">open-source</option><option value="public-domain">public-domain</option><option value="source-available">source-available</option><option value="proprietary/source-sdk">proprietary/source-sdk</option><option value="unclear/recovered">unclear/recovered</option><option value="unclear">unclear</option></select>
+<select id="minrust"><option value="">Any Rust score</option><option value="10">10+</option><option value="9">9+</option><option value="8">8+</option><option value="7">7+</option></select>
+<button id="reset">Reset</button>
+</section>
+<div class="table-wrap"><table><thead><tr><th>Rank</th><th>Game</th><th>Year</th><th>Developer</th><th>Source release</th><th>License</th><th>Architecture</th><th>Rust</th><th>Mods</th><th>GitHub</th><th>Modern port / continuation</th></tr></thead><tbody id="rows"></tbody></table></div>
+</main>
+<script>
+const esc=(v)=>String(v??"").replace(/[&<>"]/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+async function loadStats(){const s=await fetch("/api/stats").then(r=>r.json());const cards=[["Games",s.total_games],["Open/public",s.open_source],["Source available",s.source_available],["With GitHub",s.with_github_repo],["Live checked",s.github_live_checked],["Avg Rust score",s.avg_rust_score]];document.getElementById("stats").innerHTML=cards.map(x=>"<div class='card'><div>"+esc(x[0])+"</div><div class='num'>"+esc(x[1])+"</div></div>").join("")}
+async function load(){const q=document.getElementById("q").value,license=document.getElementById("license").value,minrust=document.getElementById("minrust").value;const u=new URL("/api/games",location);if(q)u.searchParams.set("q",q);if(license)u.searchParams.set("license",license);if(minrust)u.searchParams.set("min_rust",minrust);u.searchParams.set("limit","500");const data=await fetch(u).then(r=>r.json());const body=document.getElementById("rows");if(!data.games.length){body.innerHTML="<tr><td colspan='11' class='empty'>No matching records.</td></tr>";return}body.innerHTML=data.games.map(g=>{const stars=g.github_stars_live??g.github_stars??"-";const repo=g.official_repository?"<a href='"+esc(g.official_repository)+"' target='_blank' rel='noreferrer'>repository</a>":"-";const rust=g.rust_port_candidate??g.rust_score_computed;return "<tr><td>"+g.popularity_rank+"</td><td><strong>"+esc(g.game)+"</strong><br><span class='badge'>"+esc(g.source_status)+"</span></td><td>"+esc(g.original_year)+"</td><td>"+esc(g.original_developer)+"</td><td>"+esc(g.source_release)+"</td><td>"+esc(g.license_status)+"</td><td>"+esc(g.engine_architecture)+"</td><td class='score'>"+rust+"/10</td><td>"+(g.modding_potential??"-")+"/5</td><td>"+esc(stars)+"<br>"+repo+"</td><td>"+esc(g.modern_source_port)+"</td></tr>"}).join("")}
+let timer;document.getElementById("q").addEventListener("input",()=>{clearTimeout(timer);timer=setTimeout(load,180)});document.getElementById("license").addEventListener("change",load);document.getElementById("minrust").addEventListener("change",load);document.getElementById("reset").addEventListener("click",()=>{document.getElementById("q").value="";document.getElementById("license").value="";document.getElementById("minrust").value="";load()});loadStats();load();
+</script>
+</body>
+</html>
