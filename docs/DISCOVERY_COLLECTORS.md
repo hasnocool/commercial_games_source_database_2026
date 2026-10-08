@@ -16,6 +16,14 @@ Uses the GitHub REST repository search API and then automatically inspects up to
 
 Uses public SteamDB search HTML as the first-pass app enumerator, then expands each discovered app through its `/app/<id>/subs/` package page. Source-like package names are selected and their individual `/sub/<id>/` pages are fetched for package metadata, license text and source-completeness language. This catches dedicated source-code packages that ordinary game searches miss. Package discoveries remain evidence leads until the source/license is independently verified.
 
+### itch.io
+
+Scans public itch.io tag/listing pages for source-code-related tags, then inspects individual public game pages for explicit source availability and external source-repository links.
+
+The sourcecode tag is treated as a high-recall discovery hint, not proof that a game's own source is available. A candidate requires page-level source-availability language or a source/repository link. urlitch.io sourcecode taghttps://itch.io/games/tag-sourcecode
+
+This is especially useful for complete game/project source code published or sold directly on itch.io, free/open-source projects, and source releases that do not surface in GitHub or SteamDB searches. The collector records public page evidence only; it does not download builds, source archives, or binaries. It does not require the authenticated itch.io server-side API. urlitch.io API overviewhttps://itch.io/docs/api/overview
+
 ### Wayback
 
 Queries the Wayback CDX endpoint for domains or URL prefixes. The CDX API can return JSON capture indexes and supports collapsing/paging. This collector is intended to recover dead source-release pages, developer announcements, old repository links, and source-download pages.
@@ -154,3 +162,8 @@ collector → inbox JSONL → review / dedup → provenance CSV + SQLite → can
 ```
 
 The JSONL inbox is the reproducible raw discovery artifact. The provenance ledgers are the durable, reviewable representation.
+
+
+### Expanded leak discovery
+
+Internet Archive and GitHub defaults also search for pirated source, source/code dumps, internal/private source leaks, stolen source, and unreleased builds. These terms increase recall only; resulting records remain provenance leads and are not automatically marked as confirmed leaks or open source.
