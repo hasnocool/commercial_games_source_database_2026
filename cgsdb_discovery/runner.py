@@ -30,6 +30,8 @@ DEFAULT_IA_QUERIES = [
     'title:("source code") AND mediatype:software',
     'description:("game source code") AND mediatype:software',
     'subject:("game source code")',
+    '("leaked source" OR "source code leak") AND mediatype:software',
+    '("unauthorized source" OR "stolen source") AND mediatype:software',
 ]
 
 DEFAULT_GITHUB_QUERIES = [
@@ -40,6 +42,12 @@ DEFAULT_GITHUB_QUERIES = [
     '"released source" game',
     '"commercial game" source code',
     '"source release" game',
+    '"leaked game source"',
+    '"game source leak"',
+    '"source code leak"',
+    '"stolen source" game',
+    '"unauthorized source" game',
+    '"unreleased game source"',
 ]
 
 DEFAULT_DEVELOPER_URLS = [
