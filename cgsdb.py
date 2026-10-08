@@ -969,8 +969,18 @@ def ensure_database() -> None:
         import_csv()
 
 
-def search_games(query: str = "", license: str | None = None,
-                 min_rust_score: int | None = None, limit: int = 50) -> list[dict]:
+def search_games(
+    query: str = "",
+    license: str | None = None,
+    min_rust_score: int | None = None,
+    provenance: str | None = None,
+    leak_status: str | None = None,
+    content_type: str | None = None,
+    access_status: str | None = None,
+    redistribution_status: str | None = None,
+    tag: str | None = None,
+    limit: int = 50,
+) -> list[dict]:
     ensure_database()
     clauses: list[str] = []
     params: list[object] = []
@@ -990,6 +1000,24 @@ def search_games(query: str = "", license: str | None = None,
     if min_rust_score is not None:
         clauses.append("COALESCE(rust_port_candidate, rust_score_computed) >= ?")
         params.append(min_rust_score)
+    if provenance:
+        clauses.append("provenance_class = ?")
+        params.append(provenance)
+    if leak_status:
+        clauses.append("leak_status = ?")
+        params.append(leak_status)
+    if content_type:
+        clauses.append("(';' || content_types || ';') LIKE ?")
+        params.append(f"%;{content_type};%")
+    if access_status:
+        clauses.append("access_status = ?")
+        params.append(access_status)
+    if redistribution_status:
+        clauses.append("redistribution_status = ?")
+        params.append(redistribution_status)
+    if tag:
+        clauses.append("(';' || classification_tags || ';') LIKE ?")
+        params.append(f"%;{tag};%")
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"""
@@ -1263,6 +1291,12 @@ def parser() -> argparse.ArgumentParser:
     search.add_argument("query", nargs="?", default="")
     search.add_argument("--license")
     search.add_argument("--min-rust-score", type=int)
+    search.add_argument("--provenance")
+    search.add_argument("--leak-status")
+    search.add_argument("--content-type")
+    search.add_argument("--access-status")
+    search.add_argument("--redistribution-status")
+    search.add_argument("--tag")
     search.add_argument("--limit", type=int, default=25)
     search.add_argument("--json", action="store_true")
 
@@ -1368,6 +1402,12 @@ def main() -> None:
             args.query,
             license=args.license,
             min_rust_score=args.min_rust_score,
+            provenance=args.provenance,
+            leak_status=args.leak_status,
+            content_type=args.content_type,
+            access_status=args.access_status,
+            redistribution_status=args.redistribution_status,
+            tag=args.tag,
             limit=args.limit,
         )
         if args.json:
