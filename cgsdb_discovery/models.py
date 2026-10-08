@@ -140,6 +140,16 @@ class CandidateRecord:
     provenance_confidence: str = "low"
     evidence_confidence: str = "low"
     notes: str = ""
+    title_match_confidence: float | None = None
+    itch_creator_username: str = ""
+    itch_creator_display_name: str = ""
+    itch_price_status: str = "unknown"
+    itch_min_price: str = ""
+    itch_engine_tags: list[str] = field(default_factory=list)
+    itch_source_repository_url: str = ""
+    itch_downloadable_project_status: str = "unknown"
+    itch_downloadable_project_confidence: str = "low"
+    itch_downloadable_files: list[str] = field(default_factory=list)
     evidence: list[EvidenceRecord] = field(default_factory=list)
 
     @property
