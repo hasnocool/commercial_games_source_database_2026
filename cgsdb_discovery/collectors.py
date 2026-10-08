@@ -42,6 +42,16 @@ SOURCE_KEYWORDS = (
     "stolen source",
     "unauthorized source",
     "unreleased source",
+    "pirated source",
+    "pirated source code",
+    "pirated game",
+    "stolen source code",
+    "stolen game source",
+    "internal source leak",
+    "internal game leak",
+    "private source leak",
+    "source dump",
+    "code dump",
 )
 
 LICENSE_RE = re.compile(
@@ -99,6 +109,16 @@ def classify_provenance_text(text: str) -> tuple[str, str, list[str]]:
         "prototype leak",
         "internal build",
         "unreleased build",
+        "pirated source",
+        "pirated source code",
+        "pirated game",
+        "stolen source code",
+        "stolen game source",
+        "internal source leak",
+        "internal game leak",
+        "private source leak",
+        "source dump",
+        "code dump",
     )
     reverse_phrases = ("reverse engineered", "reverse-engineered", "clean-room reimplementation")
     recovery_phrases = ("source recovered", "recovered source", "archival recovery", "preservation archive")
@@ -199,7 +219,7 @@ def candidate_from_text(
         if any(x in content_blob for x in ("assets", "artwork", "sound", "music")):
             inferred_types.append("assets")
         content_types = inferred_types or []
-    if access_status == "unknown" and source in {"github", "steamdb", "internet-archive", "developer-site", "wayback"}:
+    if access_status == "unknown" and source in {"github", "steamdb", "internet-archive", "itchio", "developer-site", "wayback"}:
         access_status = "public"
     if redistribution_status == "unknown":
         if license_family(license_hint or first_license(snippet)) in {"open-source", "public-domain"}:
@@ -225,8 +245,8 @@ def candidate_from_text(
         access_status=access_status,
         redistribution_status=redistribution_status,
         classification_tags=list(classification_tags or []),
-        provenance_confidence="medium" if source in {"developer-site", "github"} else "low",
-        evidence_confidence="medium" if source in {"developer-site", "github"} else "low",
+        provenance_confidence="medium" if source in {"developer-site", "github", "itchio"} else "low",
+        evidence_confidence="medium" if source in {"developer-site", "github", "itchio"} else "low",
         notes=normalize_space(snippet)[:2000],
     )
     candidate.evidence.append(
@@ -249,7 +269,7 @@ def candidate_from_text(
             access_status_claim=access_status,
             redistribution_status_claim=redistribution_status,
             classification_tags=list(classification_tags or []),
-            confidence="medium" if source in {"developer-site", "github"} else "low",
+            confidence="medium" if source in {"developer-site", "github", "itchio"} else "low",
             notes=normalize_space(snippet)[:3000],
         )
     )
@@ -1039,6 +1059,408 @@ class SteamDBCollector:
                 "apps_discovered": len(app_map),
                 "apps_enumerated": len(app_targets),
                 "package_candidates": len(package_candidates),
+            },
+        )
+
+
+
+class ItchioCollector:
+    """Discover source-code availability on public itch.io listing/game pages.
+
+    The authenticated itch.io server-side API is intentionally not required.
+    This collector reads public HTML only and never downloads game builds,
+    source archives, or other binaries.
+    """
+
+    name = "itchio"
+
+    DEFAULT_TAGS = (
+        "sourcecode",
+        "source-code",
+        "game-source-code",
+        "open-source",
+        "opensource",
+    )
+
+    SOURCE_CLAIM_PHRASES = (
+        "source code available",
+        "source code included",
+        "source code is included",
+        "source included",
+        "source files included",
+        "includes source",
+        "includes the source",
+        "full source code",
+        "complete source code",
+        "entire source code",
+        "full source",
+        "complete source",
+        "full project",
+        "complete project",
+        "project files included",
+        "source repository",
+        "source repo",
+        "open source",
+        "open-source",
+        "published source",
+        "source released",
+        "released source",
+        "game source",
+    )
+
+    COMPLETE_SOURCE_PHRASES = (
+        "full source code",
+        "complete source code",
+        "entire source code",
+        "full source",
+        "complete source",
+        "full project",
+        "complete project",
+        "project files included",
+        "complete game project",
+        "entire game project",
+    )
+
+    SOURCE_LINK_HOSTS = {
+        "github.com",
+        "gitlab.com",
+        "codeberg.org",
+        "sourcehut.org",
+        "sr.ht",
+    }
+
+    def __init__(
+        self,
+        client: AsyncHttpClient,
+        tags: list[str] | None = None,
+        urls: list[str] | None = None,
+        game_urls: list[str] | None = None,
+        title_filters: list[str] | None = None,
+    ) -> None:
+        self.client = client
+        self.tags = [
+            str(tag).strip()
+            for tag in (tags or self.DEFAULT_TAGS)
+            if str(tag).strip()
+        ]
+        self.urls = [str(url).strip() for url in (urls or []) if str(url).strip()]
+        self.game_urls = [
+            str(url).strip() for url in (game_urls or []) if str(url).strip()
+        ]
+        self.title_filters = [
+            normalize_space(title).casefold()
+            for title in (title_filters or [])
+            if normalize_space(title)
+        ]
+
+    @staticmethod
+    def tag_page_url(tag: str, page: int = 1) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", tag.casefold()).strip("-")
+        base = f"https://itch.io/games/tag-{slug}"
+        return base if page <= 1 else f"{base}?page={page}"
+
+    @classmethod
+    def is_game_url(cls, url: str) -> bool:
+        parsed = urlparse(url)
+        host = parsed.netloc.casefold().split(":", 1)[0]
+        if parsed.scheme not in {"http", "https"} or not host.endswith(".itch.io"):
+            return False
+        parts = [part for part in parsed.path.split("/") if part]
+        return len(parts) == 1 and parts[0].casefold() not in {
+            "about",
+            "community",
+            "devlogs",
+            "games",
+            "jams",
+            "login",
+            "notifications",
+            "press",
+            "search",
+            "settings",
+            "stats",
+        }
+
+    @classmethod
+    def _source_links(cls, url: str, body: str) -> list[tuple[str, str]]:
+        parser = LinkTextParser()
+        parser.feed(body)
+        found: OrderedDict[str, str] = OrderedDict()
+        for href, link_text in parser.links:
+            absolute = urljoin(url, href)
+            parsed = urlparse(absolute)
+            host = parsed.netloc.casefold().split(":", 1)[0]
+            if host in cls.SOURCE_LINK_HOSTS or any(
+                token in link_text.casefold()
+                for token in ("source", "repository", "repo", "github", "gitlab")
+            ):
+                found[absolute.rstrip("/")] = normalize_space(link_text)
+        return list(found.items())
+
+    def _title_matches(self, title: str) -> bool:
+        if not self.title_filters:
+            return True
+        haystack = normalize_space(title).casefold()
+        return any(
+            wanted == haystack
+            or wanted in haystack
+            or haystack in wanted
+            for wanted in self.title_filters
+        )
+
+    async def fetch_listing(
+        self,
+        url: str,
+    ) -> tuple[list[tuple[str, str]], list[dict[str, str]]]:
+        errors: list[dict[str, str]] = []
+        try:
+            status, _, body = await self.client.request("GET", url)
+            if status != 200:
+                return [], [{"url": url, "error": f"HTTP {status}"}]
+
+            parser = LinkTextParser()
+            parser.feed(body)
+            links: OrderedDict[str, str] = OrderedDict()
+            for href, link_text in parser.links:
+                absolute = urljoin(url, href).split("#", 1)[0]
+                if not self.is_game_url(absolute):
+                    continue
+                title = normalize_space(link_text)
+                if not title or not self._title_matches(title):
+                    continue
+                links.setdefault(absolute, title)
+            return list(links.items()), errors
+        except (asyncio.TimeoutError, UnicodeError) as exc:
+            return [], [{"url": url, "error": str(exc)}]
+
+    async def inspect_game(
+        self,
+        url: str,
+        *,
+        listing_title: str = "",
+        listing_url: str = "",
+    ) -> CandidateRecord | None:
+        status, _, body = await self.client.request("GET", url)
+        if status != 200:
+            return None
+
+        meta = MetaParser()
+        meta.feed(body)
+        plain = normalize_space(re.sub(r"<[^>]+>", " ", body))
+        haystack = plain.casefold()
+
+        source_hits = [
+            phrase
+            for phrase in self.SOURCE_CLAIM_PHRASES
+            if phrase in haystack
+        ]
+        source_links = self._source_links(url, body)
+
+        # The sourcecode tag is intentionally noisy. Require a page-level
+        # source claim or an external repository link before emitting a record.
+        if not source_hits and not source_links:
+            return None
+
+        origin, leak_status, leak_tags = classify_provenance_text(
+            f"{plain} {url}"
+        )
+        exact_license = first_license(plain)
+        complete = any(
+            phrase in haystack
+            for phrase in self.COMPLETE_SOURCE_PHRASES
+        )
+
+        parsed = urlparse(url)
+        creator = parsed.netloc.split(".", 1)[0] if parsed.netloc else ""
+        title = normalize_space(meta.title or listing_title) or url
+
+        if complete and "full game" in haystack:
+            content_types = ["source-code", "full-game"]
+        else:
+            content_types = ["source-code"]
+
+        paid = any(
+            token in haystack
+            for token in ("buy", "purchase", "price", "$", "pay what you want")
+        )
+
+        tags = set(leak_tags) | {"itchio", "source-code-listing"}
+        if complete:
+            tags.add("complete-source-claim")
+        if source_links:
+            tags.add("external-source-repository")
+        if paid and source_hits:
+            tags.add("paid-source-code")
+
+        candidate = candidate_from_text(
+            title=title,
+            developer=creator,
+            source=self.name,
+            url=url,
+            query=listing_url or "itch.io source-code scan",
+            snippet=plain[:5000],
+            license_hint=exact_license,
+            source_scope="itchio-game-page",
+            authorization=(
+                "unauthorized-or-unresolved"
+                if origin == "leak"
+                else "seller-published"
+            ),
+            completeness=(
+                "complete-source-claim"
+                if complete
+                else "source-code-claim"
+            ),
+            provenance_class=origin,
+            leak_status=leak_status,
+            content_types=content_types,
+            access_status="public",
+            redistribution_status=(
+                "forbidden"
+                if origin == "leak"
+                else (
+                    "allowed"
+                    if license_family(exact_license)
+                    in {"open-source", "public-domain"}
+                    else "unknown"
+                )
+            ),
+            classification_tags=sorted(tags),
+        )
+        candidate.review_status = "needs-verification"
+
+        if listing_url:
+            candidate.evidence.append(
+                EvidenceRecord(
+                    candidate_id=candidate.candidate_id,
+                    evidence_source="itchio-listing",
+                    evidence_url=listing_url,
+                    evidence_title=listing_title or title,
+                    accessed_at=utc_now(),
+                    evidence_type="listing",
+                    publisher_or_owner=creator,
+                    source_scope_claim="itchio-tag-listing",
+                    authorization_signal="platform-listing",
+                    source_completeness_claim="",
+                    provenance_class_claim=origin,
+                    leak_status_claim=leak_status,
+                    content_type_claim="source-code",
+                    access_status_claim="public",
+                    redistribution_status_claim=candidate.redistribution_status,
+                    classification_tags=["itchio", "source-code-listing"],
+                    confidence="medium",
+                    notes=f"Discovered from itch.io listing: {listing_url}",
+                )
+            )
+
+        for source_url, link_text in source_links:
+            candidate.evidence.append(
+                EvidenceRecord(
+                    candidate_id=candidate.candidate_id,
+                    evidence_source="itchio-source-link",
+                    evidence_url=source_url,
+                    evidence_title=link_text or source_url,
+                    accessed_at=utc_now(),
+                    evidence_type="source-link",
+                    publisher_or_owner=creator,
+                    source_scope_claim="external-source-repository-link",
+                    authorization_signal="seller-published-link",
+                    source_completeness_claim=(
+                        "complete-source-claim" if complete else ""
+                    ),
+                    provenance_class_claim=origin,
+                    leak_status_claim=leak_status,
+                    content_type_claim="source-code",
+                    access_status_claim="public",
+                    redistribution_status_claim=candidate.redistribution_status,
+                    classification_tags=["itchio", "external-source-repository"],
+                    confidence="medium",
+                    notes=link_text,
+                )
+            )
+
+        return candidate
+
+    async def collect(
+        self,
+        *,
+        pages: int = 3,
+        inspect_limit: int = 300,
+    ) -> CollectorResult:
+        listing_urls: OrderedDict[str, str] = OrderedDict()
+
+        for url in self.urls:
+            listing_urls.setdefault(url.rstrip("/"), url.rstrip("/"))
+
+        for tag in self.tags:
+            for page in range(1, max(1, pages) + 1):
+                url = self.tag_page_url(tag, page)
+                listing_urls.setdefault(url, url)
+
+        all_games: OrderedDict[str, tuple[str, str]] = OrderedDict()
+        errors: list[dict[str, str]] = []
+
+        listing_results = await asyncio.gather(
+            *(self.fetch_listing(url) for url in listing_urls.values()),
+            return_exceptions=True,
+        )
+
+        for listing_url, result in zip(listing_urls.values(), listing_results):
+            if isinstance(result, Exception):
+                errors.append({"url": listing_url, "error": str(result)})
+                continue
+
+            game_links, listing_errors = result
+            errors.extend(listing_errors)
+
+            for game_url, title in game_links:
+                all_games.setdefault(game_url, (title, listing_url))
+
+        for game_url in self.game_urls:
+            if self.is_game_url(game_url):
+                all_games.setdefault(game_url, ("", "direct-game-url"))
+
+        targets = list(all_games.items())[:max(0, inspect_limit)]
+
+        async def inspect_one(
+            item: tuple[str, tuple[str, str]],
+        ) -> CandidateRecord | None:
+            game_url, (title, listing_url) = item
+            try:
+                return await self.inspect_game(
+                    game_url,
+                    listing_title=title,
+                    listing_url=listing_url,
+                )
+            except (asyncio.TimeoutError, UnicodeError) as exc:
+                errors.append({"url": game_url, "error": str(exc)})
+                return None
+
+        inspected = await asyncio.gather(
+            *(inspect_one(item) for item in targets),
+            return_exceptions=True,
+        )
+
+        candidates: list[CandidateRecord] = []
+        for item in inspected:
+            if isinstance(item, Exception):
+                errors.append({"url": "itch.io", "error": str(item)})
+            elif item is not None:
+                candidates.append(item)
+
+        return CollectorResult(
+            self.name,
+            candidates,
+            errors,
+            metadata={
+                "listing_pages": len(listing_urls),
+                "listing_game_urls": len(all_games),
+                "inspect_limit": inspect_limit,
+                "inspected_games": len(targets),
+                "source_candidate_count": len(candidates),
+                "tags": self.tags,
+                "direct_urls": self.urls,
+                "direct_game_urls": self.game_urls,
+                "title_filters": self.title_filters,
             },
         )
 
