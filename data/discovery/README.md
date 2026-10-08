@@ -85,3 +85,33 @@ python cgsdb.py import-discovery
 python cgsdb.py export-discovery
 python cgsdb.py discovery-report reports/discovery-review.md
 ```
+
+# Discovery data
+
+The discovery layer is a high-recall staging and provenance system. It intentionally keeps candidate records separate from the canonical game table.
+
+## Candidate classification
+
+In addition to license, authorization and source-completeness fields, candidates track:
+
+- `provenance_class`: how the material appears to have become available.
+- `leak_status`: whether a leak is absent, reported, suspected or historically/explicitly confirmed.
+- `content_types`: source code, binary, assets, full game, SDK, server, tools, documentation, and other facets.
+- `access_status`: public, restricted, removed, private, dead-link or unknown.
+- `redistribution_status`: allowed, restricted, forbidden or unknown.
+- `classification_tags`: extensible labels for future filters.
+
+Evidence records contain matching `*_claim` fields so classifications remain attributable to individual sources.
+
+Leak records are valid research candidates even when unauthorized. They are never treated as open-source merely because the source exists, and the collector does not redistribute leaked code or assets.
+
+## Useful queries
+
+```bash
+python cgsdb.py discovery-search --leak-status reported
+python cgsdb.py discovery-search --provenance leak
+python cgsdb.py discovery-search --content-type source-code --redistribution-status forbidden
+python cgsdb.py discovery-search --tag leaked-content
+```
+
+The filters combine with AND semantics.
