@@ -1164,6 +1164,10 @@ def stats() -> dict:
             "source_available": conn.execute("SELECT COUNT(*) FROM games WHERE source_status='source-available'").fetchone()[0],
             "unclear": conn.execute("SELECT COUNT(*) FROM games WHERE source_status='unclear'").fetchone()[0],
             "found_not_authorized": conn.execute("SELECT COUNT(*) FROM games WHERE source_status='found-not-authorized'").fetchone()[0],
+            "leak_records": conn.execute("SELECT COUNT(*) FROM games WHERE leak_status != 'not-leak'").fetchone()[0],
+            "reported_or_suspected_leaks": conn.execute(
+                "SELECT COUNT(*) FROM games WHERE leak_status IN ('reported','suspected')"
+            ).fetchone()[0],
             "with_github_repo": conn.execute("SELECT COUNT(*) FROM games WHERE github_owner IS NOT NULL").fetchone()[0],
             "github_live_checked": conn.execute("SELECT COUNT(*) FROM games WHERE github_checked_at IS NOT NULL").fetchone()[0],
             "avg_rust_score": conn.execute(
@@ -1547,6 +1551,8 @@ def main() -> None:
             print(f"Source available: {payload['source_available']}")
             print(f"Unclear/recovered: {payload['unclear']}")
             print(f"Found but not authorized: {payload['found_not_authorized']}")
+            print(f"Leak records: {payload['leak_records']}")
+            print(f"Reported/suspected leaks: {payload['reported_or_suspected_leaks']}")
             print(f"Rows with GitHub repos: {payload['with_github_repo']}")
             print(f"Rows with live GitHub checks: {payload['github_live_checked']}")
             print(f"Average candidate score: {payload['avg_rust_score']}")
