@@ -684,6 +684,18 @@ def discovery_stats() -> dict:
                     "FROM discovery_candidates GROUP BY source_completeness ORDER BY count DESC, completeness"
                 )
             ],
+            "provenance_class": [
+                dict(row) for row in conn.execute(
+                    "SELECT COALESCE(provenance_class,'unknown') AS provenance, COUNT(*) AS count "
+                    "FROM discovery_candidates GROUP BY provenance_class ORDER BY count DESC, provenance"
+                )
+            ],
+            "leak_status": [
+                dict(row) for row in conn.execute(
+                    "SELECT COALESCE(leak_status,'not-leak') AS leak_status, COUNT(*) AS count "
+                    "FROM discovery_candidates GROUP BY leak_status ORDER BY count DESC, leak_status"
+                )
+            ],
         }
 
 
@@ -1416,6 +1428,12 @@ def parser() -> argparse.ArgumentParser:
     discovery.add_argument("query", nargs="?", default="")
     discovery.add_argument("--review-status")
     discovery.add_argument("--source")
+    discovery.add_argument("--provenance")
+    discovery.add_argument("--leak-status")
+    discovery.add_argument("--content-type")
+    discovery.add_argument("--access-status")
+    discovery.add_argument("--redistribution-status")
+    discovery.add_argument("--tag")
     discovery.add_argument("--limit", type=int, default=50)
     discovery.add_argument("--json", action="store_true")
 
@@ -1585,7 +1603,18 @@ def main() -> None:
         for item in payload["discovery_sources"]:
             print(f"  {item['source']}: {item['count']}")
     elif args.command == "discovery-search":
-        rows = discovery_search(args.query, args.review_status, args.source, args.limit)
+        rows = discovery_search(
+            args.query,
+            args.review_status,
+            args.source,
+            args.provenance,
+            args.leak_status,
+            args.content_type,
+            args.access_status,
+            args.redistribution_status,
+            args.tag,
+            args.limit,
+        )
         if args.json:
             print(json.dumps(rows, ensure_ascii=False, indent=2))
             return
