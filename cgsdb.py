@@ -1065,6 +1065,8 @@ def export_csv(output: Path) -> int:
         "Official / Primary Repository", "Modern Source Port / Continuation",
         "Engine / Architecture", "Modding Potential (1-5)", "Rust Port Candidate (1-10)",
         "GitHub Stars", "Verification / Notes", "Primary Source",
+        "Provenance Class", "Leak Status", "Content Types", "Access Status",
+        "Redistribution Status", "Classification Tags",
     ]
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8", newline="") as fh:
@@ -1079,6 +1081,9 @@ def export_csv(output: Path) -> int:
                 row["rust_port_candidate"] if row["rust_port_candidate"] is not None else "",
                 row["github_stars"] if row["github_stars"] is not None else "",
                 row["verification_notes"], row["primary_source"],
+                row["provenance_class"], row["leak_status"], row["content_types"],
+                row["access_status"], row["redistribution_status"],
+                row["classification_tags"],
             ])
     return len(rows)
 
