@@ -219,7 +219,8 @@ class InternetArchiveCollector:
         errors: list[dict[str, str]] = []
         cursor_value = cursor
         pages_seen = 0
-        total: int | None = None
+        total_at_first: int | None = None
+        resume_cursor = cursor_value
         fields = ",".join(
             [
                 "identifier",
@@ -252,7 +253,8 @@ class InternetArchiveCollector:
                     break
                 payload = json.loads(body)
                 items = payload.get("items", [])
-                total = payload.get("total", total)
+                if total_at_first is None:
+                    total_at_first = payload.get("total")
                 for doc in items:
                     title = normalize_space(doc.get("title") or doc.get("identifier") or "")
                     description = normalize_space(doc.get("description") or "")
@@ -283,8 +285,8 @@ class InternetArchiveCollector:
                     )
                 pages_seen += 1
                 next_cursor = payload.get("cursor") or ""
+                resume_cursor = next_cursor
                 if not items or not next_cursor or next_cursor == cursor_value:
-                    cursor_value = ""
                     break
                 cursor_value = next_cursor
             except (json.JSONDecodeError, asyncio.TimeoutError) as exc:
@@ -298,8 +300,8 @@ class InternetArchiveCollector:
                 "mode": "cursor",
                 "query": query,
                 "pages_seen": pages_seen,
-                "total_at_start": total,
-                "last_cursor": cursor_value,
+                "total_at_start": total_at_first,
+                "resume_cursor": resume_cursor,
             },
         )
 
@@ -498,7 +500,8 @@ class GitHubCollector:
             note_bits.append(f"readme_license={readme_license}")
         candidate.notes = normalize_space(candidate.notes + " " + " ".join(note_bits))[:2000]
 
-        if license_name:
+        license_claim = license_name or first_license(license_text)
+        if license_claim:
             candidate.evidence.append(
                 EvidenceRecord(
                     candidate_id=candidate.candidate_id,
@@ -508,7 +511,7 @@ class GitHubCollector:
                     accessed_at=utc_now(),
                     evidence_type="license",
                     publisher_or_owner=owner,
-                    license_claim=license_name,
+                    license_claim=license_claim,
                     source_scope_claim="repository-license",
                     confidence="high",
                     notes=normalize_space(license_text)[:3000],
