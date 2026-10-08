@@ -195,6 +195,22 @@ def classify_license(value: str) -> str:
     return "unclear"
 
 
+def infer_provenance_fields(license_status: str, notes: str) -> dict[str, str]:
+    combined = f"{license_status} {notes}".casefold()
+    if any(p in combined for p in (
+        "source code leak", "leaked source", "leaked game",
+        "game leak", "stolen source", "unauthorized source",
+    )):
+        return {"provenance_class": "leak", "leak_status": "reported", "classification_tags": "leaked-content"}
+    if any(p in combined for p in ("reverse engineered", "reverse-engineered", "clean-room")):
+        return {"provenance_class": "reverse-engineered", "leak_status": "not-leak", "classification_tags": "reverse-engineered"}
+    if "recovered" in combined:
+        return {"provenance_class": "archival-recovery", "leak_status": "not-leak", "classification_tags": "archival-recovery"}
+    if any(p in combined for p in ("official source release", "official repository", "released by the developer")):
+        return {"provenance_class": "authorized-source-release", "leak_status": "not-leak", "classification_tags": "authorized-source-release"}
+    return {"provenance_class": "unknown", "leak_status": "suspected" if "leak" in combined else "not-leak", "classification_tags": ""}
+
+
 def classify_source_status(license_status: str, notes: str) -> str:
     combined = f"{license_status} {notes}".lower()
     if "not an authorized" in combined or "unauthorized" in combined or "accidental" in combined:
@@ -362,7 +378,9 @@ GAME_COLUMNS = """
     official_repository, modern_source_port, engine_architecture,
     modding_potential, rust_port_candidate, github_stars,
     github_stars_live, github_checked_at, verification_notes, primary_source,
-    github_owner, github_repo, license_family, source_status, rust_score_computed
+    github_owner, github_repo, license_family, source_status, rust_score_computed,
+    provenance_class, leak_status, content_types, access_status,
+    redistribution_status, classification_tags
 """
 
 
