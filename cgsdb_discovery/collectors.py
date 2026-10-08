@@ -584,6 +584,17 @@ class GitHubCollector:
             if status == 200:
                 readme_text = normalize_space(body)
 
+        readme_origin, readme_leak, readme_tags = classify_provenance_text(readme_text)
+        if readme_origin != "unknown":
+            candidate.provenance_class = readme_origin
+        if readme_leak != "not-leak":
+            candidate.leak_status = readme_leak
+        candidate.classification_tags = sorted(
+            set(candidate.classification_tags) | set(readme_tags)
+        )
+        if "source" in readme_text.casefold() and "source-code" not in candidate.content_types:
+            candidate.content_types = sorted(set(candidate.content_types) | {"source-code"})
+
         readme_signals = [k for k in SOURCE_KEYWORDS if k in readme_text.casefold()]
         readme_license = first_license(readme_text)
         exact_license = license_name or readme_license or first_license(license_text)
@@ -657,14 +668,6 @@ class GitHubCollector:
                     notes=readme_text[:5000],
                 )
             )
-        readme_origin, readme_leak, readme_tags = classify_provenance_text(readme_text)
-        if readme_origin != "unknown":
-            candidate.provenance_class = readme_origin
-        if readme_leak != "not-leak":
-            candidate.leak_status = readme_leak
-        candidate.classification_tags = sorted(
-            set(candidate.classification_tags) | set(readme_tags)
-        )
         return candidate
 
     async def search(self, query: str, *, pages: int = 3, per_page: int = 100) -> CollectorResult:
