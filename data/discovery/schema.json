@@ -47,6 +47,53 @@
         "unauthorized-or-unresolved",
         "unknown"
       ]
+    },
+    "provenance_class": {
+      "type": "string",
+      "enum": [
+        "official-authorized",
+        "authorized-source-release",
+        "leak",
+        "archival-recovery",
+        "reverse-engineered",
+        "fan-maintained",
+        "unknown"
+      ]
+    },
+    "leak_status": {
+      "type": "string",
+      "enum": [
+        "not-leak",
+        "reported",
+        "suspected",
+        "confirmed",
+        "historical-confirmed",
+        "unknown"
+      ]
+    },
+    "access_status": {
+      "type": "string",
+      "enum": [
+        "public",
+        "restricted",
+        "removed",
+        "private",
+        "dead-link",
+        "unknown"
+      ]
+    },
+    "redistribution_status": {
+      "type": "string",
+      "enum": [
+        "allowed",
+        "restricted",
+        "forbidden",
+        "unknown"
+      ]
+    },
+    "content_type": {
+      "type": "string",
+      "description": "Free-form normalized content type such as source-code, binary, assets, full-game, sdk, server, tools, documentation."
     }
   },
   "candidate_required": [
@@ -54,14 +101,24 @@
     "candidate_title",
     "linked_game_status",
     "discovery_sources",
-    "review_status"
+    "review_status",
+    "provenance_class",
+    "leak_status",
+    "access_status",
+    "redistribution_status",
+    "classification_tags"
   ],
   "evidence_required": [
     "evidence_id",
     "candidate_id",
     "evidence_source",
     "evidence_url",
-    "evidence_type"
+    "evidence_type",
+    "provenance_class_claim",
+    "leak_status_claim",
+    "access_status_claim",
+    "redistribution_status_claim",
+    "classification_tags"
   ],
   "run_required": [
     "run_id",
