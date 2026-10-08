@@ -68,6 +68,21 @@ def merge_candidates(candidates: Iterable[CandidateRecord]) -> list[CandidateRec
             existing.source_completeness = candidate.source_completeness
         if existing.authorization_status == "unknown" and candidate.authorization_status != "unknown":
             existing.authorization_status = candidate.authorization_status
+        if existing.provenance_class == "unknown" and candidate.provenance_class != "unknown":
+            existing.provenance_class = candidate.provenance_class
+        if (
+            existing.leak_status in {"not-leak", "unknown"}
+            and candidate.leak_status not in {"not-leak", "unknown"}
+        ):
+            existing.leak_status = candidate.leak_status
+        if existing.access_status == "unknown" and candidate.access_status != "unknown":
+            existing.access_status = candidate.access_status
+        if existing.redistribution_status == "unknown" and candidate.redistribution_status != "unknown":
+            existing.redistribution_status = candidate.redistribution_status
+        existing.content_types = sorted(set(existing.content_types) | set(candidate.content_types))
+        existing.classification_tags = sorted(
+            set(existing.classification_tags) | set(candidate.classification_tags)
+        )
         existing.evidence.extend(candidate.evidence)
     # Deduplicate evidence inside the merged candidate.
     for candidate in merged.values():
