@@ -5,7 +5,11 @@ from __future__ import annotations
 import base64
 import unittest
 
-from cgsdb_discovery.collectors import first_license, normalize_space
+from cgsdb_discovery.collectors import (
+    classify_provenance_text,
+    first_license,
+    normalize_space,
+)
 from cgsdb_discovery.models import CandidateRecord, EvidenceRecord, game_key
 from cgsdb_discovery.runner import merge_candidates
 
@@ -19,6 +23,14 @@ class CollectorModelTests(unittest.TestCase):
 
     def test_normalize_space(self) -> None:
         self.assertEqual(normalize_space("  source\n  code  "), "source code")
+
+    def test_leak_classification_is_conservative(self) -> None:
+        origin, leak_status, tags = classify_provenance_text(
+            "reported leaked source code for an unreleased game"
+        )
+        self.assertEqual(origin, "leak")
+        self.assertEqual(leak_status, "reported")
+        self.assertIn("leaked-content", tags)
 
     def test_evidence_fingerprint_is_deterministic(self) -> None:
         evidence = EvidenceRecord(
