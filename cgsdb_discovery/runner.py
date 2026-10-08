@@ -18,6 +18,7 @@ from .collectors import (
     InternetArchiveCollector,
     IGDBCollector,
     SteamDBCollector,
+    ItchioCollector,
     WaybackCollector,
 )
 from .http import AsyncHttpClient
@@ -32,6 +33,8 @@ DEFAULT_IA_QUERIES = [
     'subject:("game source code")',
     '("leaked source" OR "source code leak") AND mediatype:software',
     '("unauthorized source" OR "stolen source") AND mediatype:software',
+    '("pirated source" OR "source dump" OR "code dump") AND mediatype:software',
+    '("internal source leak" OR "private source leak") AND mediatype:software',
 ]
 
 DEFAULT_GITHUB_QUERIES = [
@@ -48,6 +51,11 @@ DEFAULT_GITHUB_QUERIES = [
     '"stolen source" game',
     '"unauthorized source" game',
     '"unreleased game source"',
+    '"pirated source" game',
+    '"source dump" game',
+    '"code dump" game',
+    '"internal source leak" game',
+    '"private source leak" game',
 ]
 
 DEFAULT_DEVELOPER_URLS = [
@@ -119,6 +127,12 @@ async def run_discovery(
     igdb_titles: list[str] | None = None,
     steamdb_searches: list[str] | None = None,
     steamdb_app_ids: list[str] | None = None,
+    itch_tags: list[str] | None = None,
+    itch_urls: list[str] | None = None,
+    itch_game_urls: list[str] | None = None,
+    itch_titles: list[str] | None = None,
+    itch_pages: int = 3,
+    itch_inspect_limit: int = 300,
     ia_pages: int = 5,
     ia_rows: int = 100,
     ia_use_cursor: bool = True,
@@ -143,12 +157,14 @@ async def run_discovery(
     configured_wb = config.get("wayback", {})
     configured_dev = config.get("developer_site", {})
     configured_steam = config.get("steamdb", {})
+    configured_itchio = config.get("itchio", {})
     configured_igdb = config.get("igdb", {})
 
     selected = set(sources or [
         "internet-archive",
         "github",
         "steamdb",
+        "itchio",
         "wayback",
         "developer-site",
         "igdb",
@@ -186,6 +202,23 @@ async def run_discovery(
                     inspect_limit=max(0, int(configured_gh.get("inspect_limit", github_inspect_limit))),
                 )
             )
+        if "itchio" in selected:
+            itch = ItchioCollector(
+                client,
+                tags=itch_tags or configured_itchio.get("tags"),
+                urls=itch_urls or configured_itchio.get("urls"),
+                game_urls=itch_game_urls or configured_itchio.get("game_urls"),
+                title_filters=itch_titles or configured_itchio.get("title_filters"),
+            )
+            tasks.append(
+                itch.collect(
+                    pages=max(1, int(configured_itchio.get("pages", itch_pages))),
+                    inspect_limit=max(0, int(
+                        configured_itchio.get("inspect_limit", itch_inspect_limit)
+                    )),
+                )
+            )
+
         if "steamdb" in selected:
             steam = SteamDBCollector(
                 client,
@@ -301,6 +334,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--github-inspect-limit", type=int, default=200)
     parser.add_argument("--steamdb-search", action="append", dest="steamdb_searches")
     parser.add_argument("--steamdb-app", action="append", dest="steamdb_app_ids")
+    parser.add_argument("--itch-tag", action="append", dest="itch_tags")
+    parser.add_argument("--itch-url", action="append", dest="itch_urls")
+    parser.add_argument("--itch-game-url", action="append", dest="itch_game_urls")
+    parser.add_argument("--itch-title", action="append", dest="itch_titles")
+    parser.add_argument("--itch-pages", type=int, default=3)
+    parser.add_argument("--itch-inspect-limit", type=int, default=300)
     parser.add_argument("--wayback-domain", action="append", dest="wayback_domains")
     parser.add_argument("--developer-url", action="append", dest="developer_urls")
     parser.add_argument("--igdb-title", action="append", dest="igdb_titles")
@@ -323,6 +362,12 @@ def main() -> None:
             igdb_titles=args.igdb_titles,
             steamdb_searches=args.steamdb_searches,
             steamdb_app_ids=args.steamdb_app_ids,
+            itch_tags=args.itch_tags,
+            itch_urls=args.itch_urls,
+            itch_game_urls=args.itch_game_urls,
+            itch_titles=args.itch_titles,
+            itch_pages=max(1, args.itch_pages),
+            itch_inspect_limit=max(0, args.itch_inspect_limit),
             ia_pages=max(1, args.ia_pages),
             ia_rows=max(1, min(args.ia_rows, 10000)),
             ia_use_cursor=not args.ia_no_cursor,
