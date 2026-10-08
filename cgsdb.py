@@ -841,8 +841,10 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                     linked_game_status, discovery_sources, first_discovered_at,
                     discovery_query, discovery_url, review_status, exact_license,
                     license_family, source_completeness, authorization_status,
+                    provenance_class, leak_status, content_types, access_status,
+                    redistribution_status, classification_tags,
                     provenance_confidence, evidence_confidence, notes, updated_at
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(candidate_id) DO UPDATE SET
                     game_key=excluded.game_key,
                     candidate_title=excluded.candidate_title,
@@ -858,6 +860,12 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                     license_family=excluded.license_family,
                     source_completeness=excluded.source_completeness,
                     authorization_status=excluded.authorization_status,
+                    provenance_class=excluded.provenance_class,
+                    leak_status=excluded.leak_status,
+                    content_types=excluded.content_types,
+                    access_status=excluded.access_status,
+                    redistribution_status=excluded.redistribution_status,
+                    classification_tags=excluded.classification_tags,
                     provenance_confidence=excluded.provenance_confidence,
                     evidence_confidence=excluded.evidence_confidence,
                     notes=excluded.notes,
@@ -879,6 +887,12 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                     payload.get("license_family", ""),
                     payload.get("source_completeness", "unknown"),
                     payload.get("authorization_status", "unknown"),
+                    payload.get("provenance_class", "unknown"),
+                    payload.get("leak_status", "not-leak"),
+                    ";".join(payload.get("content_types") or []),
+                    payload.get("access_status", "unknown"),
+                    payload.get("redistribution_status", "unknown"),
+                    ";".join(payload.get("classification_tags") or []),
                     payload.get("provenance_confidence", "low"),
                     payload.get("evidence_confidence", "low"),
                     payload.get("notes", ""),
@@ -923,8 +937,11 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                         evidence_source, evidence_url, evidence_title, accessed_at,
                         evidence_type, publisher_or_owner, source_release_date,
                         license_claim, source_scope_claim, authorization_signal,
-                        source_completeness_claim, confidence, notes, updated_at
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        source_completeness_claim, provenance_class_claim,
+                        leak_status_claim, content_type_claim, access_status_claim,
+                        redistribution_status_claim, classification_tags,
+                        confidence, notes, updated_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         evidence_id,
@@ -941,6 +958,12 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                         evidence.get("source_scope_claim", ""),
                         evidence.get("authorization_signal", ""),
                         evidence.get("source_completeness_claim", ""),
+                        evidence.get("provenance_class_claim", "unknown"),
+                        evidence.get("leak_status_claim", "unknown"),
+                        evidence.get("content_type_claim", ""),
+                        evidence.get("access_status_claim", "unknown"),
+                        evidence.get("redistribution_status_claim", "unknown"),
+                        ";".join(evidence.get("classification_tags") or []),
                         evidence.get("confidence", "low"),
                         evidence.get("notes", ""),
                         utc_now(),
