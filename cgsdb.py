@@ -541,6 +541,12 @@ def import_discovery_data(
                     row["source_release_date"], row["license_claim"],
                     row["source_scope_claim"], row["authorization_signal"],
                     row["source_completeness_claim"],
+                    row.get("provenance_class_claim", "unknown"),
+                    row.get("leak_status_claim", "unknown"),
+                    row.get("content_type_claim", ""),
+                    row.get("access_status_claim", "unknown"),
+                    row.get("redistribution_status_claim", "unknown"),
+                    row.get("classification_tags", ""),
                 )
                 conn.execute(
                     """
