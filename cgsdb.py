@@ -1481,7 +1481,7 @@ def parser() -> argparse.ArgumentParser:
     )
     discover.add_argument(
         "--sources",
-        default="internet-archive,github,steamdb,wayback,developer-site,igdb",
+        default="internet-archive,github,steamdb,itchio,wayback,developer-site,igdb",
     )
     discover.add_argument("--ia-query", action="append", dest="ia_queries")
     discover.add_argument("--ia-pages", type=int, default=5)
@@ -1498,6 +1498,12 @@ def parser() -> argparse.ArgumentParser:
     discover.add_argument("--github-inspect-limit", type=int, default=200)
     discover.add_argument("--steamdb-search", action="append", dest="steamdb_searches")
     discover.add_argument("--steamdb-app", action="append", dest="steamdb_app_ids")
+    discover.add_argument("--itch-tag", action="append", dest="itch_tags")
+    discover.add_argument("--itch-url", action="append", dest="itch_urls")
+    discover.add_argument("--itch-game-url", action="append", dest="itch_game_urls")
+    discover.add_argument("--itch-title", action="append", dest="itch_titles")
+    discover.add_argument("--itch-pages", type=int, default=3)
+    discover.add_argument("--itch-inspect-limit", type=int, default=300)
     discover.add_argument("--wayback-domain", action="append", dest="wayback_domains")
     discover.add_argument("--developer-url", action="append", dest="developer_urls")
     discover.add_argument("--igdb-title", action="append", dest="igdb_titles")
@@ -1586,6 +1592,12 @@ def main() -> None:
                 igdb_titles=args.igdb_titles,
                 steamdb_searches=args.steamdb_searches,
                 steamdb_app_ids=args.steamdb_app_ids,
+                itch_tags=args.itch_tags,
+                itch_urls=args.itch_urls,
+                itch_game_urls=args.itch_game_urls,
+                itch_titles=args.itch_titles,
+                itch_pages=max(1, args.itch_pages),
+                itch_inspect_limit=max(0, args.itch_inspect_limit),
                 ia_pages=max(1, args.ia_pages),
                 ia_rows=max(1, min(args.ia_rows, 10000)),
                 ia_use_cursor=not args.ia_no_cursor,
