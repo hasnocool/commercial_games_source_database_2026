@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 from collections import OrderedDict, deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 import json
@@ -197,6 +197,7 @@ class CollectorResult:
     collector: str
     candidates: list[CandidateRecord]
     errors: list[dict[str, str]]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class InternetArchiveCollector:
@@ -627,7 +628,7 @@ class GitHubCollector:
                 return candidate
             try:
                 return await self.inspect_repository(candidate, *repo)
-            except (asyncio.TimeoutError, ValueError, UnicodeError) as exc:
+            except Exception as exc:
                 errors.append({
                     "query": candidate.discovery_url,
                     "error": f"inspection: {exc}",
@@ -779,7 +780,7 @@ class SteamDBCollector:
                     "source_packages": len(source_packages),
                 },
             )
-        except (asyncio.TimeoutError, UnicodeError) as exc:
+        except Exception as exc:
             errors.append({"url": url, "error": str(exc)})
         return CollectorResult(self.name, candidates, errors)
 
