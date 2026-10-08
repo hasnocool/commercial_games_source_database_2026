@@ -173,6 +173,61 @@ class DeepCollectorTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(ev.evidence_source == "github-readme" for ev in candidate.evidence))
         self.assertTrue(any("possible-authorized-release" == ev.authorization_signal for ev in candidate.evidence))
 
+    async def test_itchio_detects_complete_source_listing(self) -> None:
+        from cgsdb_discovery.collectors import ItchioCollector
+
+        listing_html = """
+        <html><body>
+          <a href="https://exampledev.itch.io/example-game">Example Game — Full Source</a>
+          <a href="https://exampledev.itch.io/">Example Dev</a>
+        </body></html>
+        """
+        game_html = """
+        <html>
+          <head><title>Example Game — Full Source</title></head>
+          <body>
+            <p>Commercial game with full source code included.</p>
+            <p>Released under MIT.</p>
+            <a href="https://github.com/exampledev/example-game">Source repository</a>
+          </body>
+        </html>
+        """
+        client = FakeHttpClient([
+            (200, {}, listing_html),
+            (200, {}, game_html),
+        ])
+        result = await ItchioCollector(
+            client,
+            tags=[],
+            urls=["https://itch.io/games/tag-sourcecode"],
+        ).collect(
+            pages=1,
+            inspect_limit=10,
+        )
+        self.assertEqual(len(result.candidates), 1)
+        candidate = result.candidates[0]
+        self.assertEqual(candidate.candidate_title, "Example Game — Full Source")
+        self.assertEqual(candidate.license_family, "open-source")
+        self.assertEqual(candidate.source_completeness, "complete-source-claim")
+        self.assertIn("source-code", candidate.content_types)
+        self.assertIn("complete-source-claim", candidate.classification_tags)
+        self.assertTrue(any(
+            ev.evidence_source == "itchio-source-link"
+            for ev in candidate.evidence
+        ))
+
+    async def test_itchio_listing_url_builder(self) -> None:
+        from cgsdb_discovery.collectors import ItchioCollector
+
+        self.assertEqual(
+            ItchioCollector.tag_page_url("sourcecode", 1),
+            "https://itch.io/games/tag-sourcecode",
+        )
+        self.assertEqual(
+            ItchioCollector.tag_page_url("open source", 3),
+            "https://itch.io/games/tag-open-source?page=3",
+        )
+
     async def test_steamdb_enumerates_source_package(self) -> None:
         from cgsdb_discovery.collectors import SteamDBCollector
 
