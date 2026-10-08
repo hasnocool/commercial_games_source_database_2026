@@ -32,6 +32,21 @@ class CollectorModelTests(unittest.TestCase):
         self.assertEqual(leak_status, "reported")
         self.assertIn("leaked-content", tags)
 
+    def test_leaked_game_build_gets_facets(self) -> None:
+        from cgsdb_discovery.collectors import candidate_from_text
+
+        candidate = candidate_from_text(
+            title="Example Unreleased Game",
+            source="github",
+            url="https://github.com/example/unreleased-game",
+            query='"game build leak"',
+            snippet="leaked internal build of the unreleased game",
+        )
+        self.assertEqual(candidate.provenance_class, "leak")
+        self.assertEqual(candidate.leak_status, "reported")
+        self.assertIn("binary", candidate.content_types)
+        self.assertIn("leaked-content", candidate.classification_tags)
+        self.assertEqual(candidate.authorization_status, "unauthorized-or-unresolved")
     def test_evidence_fingerprint_is_deterministic(self) -> None:
         evidence = EvidenceRecord(
             candidate_id="cand-example",
