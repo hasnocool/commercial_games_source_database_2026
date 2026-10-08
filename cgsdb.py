@@ -288,7 +288,6 @@ def init_db() -> None:
             "access_status": "TEXT NOT NULL DEFAULT 'unknown'",
             "redistribution_status": "TEXT NOT NULL DEFAULT 'unknown'",
             "classification_tags": "TEXT NOT NULL DEFAULT ''",
-            "source_metadata": "TEXT NOT NULL DEFAULT '{}'",
         })
         _ensure_columns(conn, "discovery_candidates", {
             "provenance_class": "TEXT NOT NULL DEFAULT 'unknown'",
@@ -297,6 +296,7 @@ def init_db() -> None:
             "access_status": "TEXT NOT NULL DEFAULT 'unknown'",
             "redistribution_status": "TEXT NOT NULL DEFAULT 'unknown'",
             "classification_tags": "TEXT NOT NULL DEFAULT ''",
+            "source_metadata": "TEXT NOT NULL DEFAULT '{}'",
         })
         _ensure_columns(conn, "discovery_evidence", {
             "provenance_class_claim": "TEXT",
