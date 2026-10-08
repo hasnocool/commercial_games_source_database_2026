@@ -29,7 +29,7 @@ DISCOVERY_CANDIDATES_PATH = DISCOVERY_DIR / "candidates.csv"
 DISCOVERY_EVIDENCE_PATH = DISCOVERY_DIR / "evidence.csv"
 DISCOVERY_RUNS_PATH = DISCOVERY_DIR / "runs.csv"
 DB_PATH = DATA_DIR / "games.db"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 GITHUB_RE = re.compile(r"https?://github\.com/([^/]+)/([^/#?]+)", re.IGNORECASE)
 NON_ALNUM = re.compile(r"[^a-z0-9]+")
@@ -69,7 +69,13 @@ CREATE TABLE IF NOT EXISTS games (
     github_repo TEXT,
     license_family TEXT NOT NULL,
     source_status TEXT NOT NULL,
-    rust_score_computed INTEGER NOT NULL
+    rust_score_computed INTEGER NOT NULL,
+    provenance_class TEXT NOT NULL DEFAULT 'unknown',
+    leak_status TEXT NOT NULL DEFAULT 'not-leak',
+    content_types TEXT NOT NULL DEFAULT '',
+    access_status TEXT NOT NULL DEFAULT 'unknown',
+    redistribution_status TEXT NOT NULL DEFAULT 'unknown',
+    classification_tags TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_games_popularity ON games(popularity_rank);
@@ -95,6 +101,12 @@ CREATE TABLE IF NOT EXISTS discovery_candidates (
     license_family TEXT,
     source_completeness TEXT,
     authorization_status TEXT,
+    provenance_class TEXT NOT NULL DEFAULT 'unknown',
+    leak_status TEXT NOT NULL DEFAULT 'not-leak',
+    content_types TEXT NOT NULL DEFAULT '',
+    access_status TEXT NOT NULL DEFAULT 'unknown',
+    redistribution_status TEXT NOT NULL DEFAULT 'unknown',
+    classification_tags TEXT NOT NULL DEFAULT '',
     provenance_confidence TEXT,
     evidence_confidence TEXT,
     notes TEXT,
@@ -122,6 +134,12 @@ CREATE TABLE IF NOT EXISTS discovery_evidence (
     source_scope_claim TEXT,
     authorization_signal TEXT,
     source_completeness_claim TEXT,
+    provenance_class_claim TEXT,
+    leak_status_claim TEXT,
+    content_type_claim TEXT,
+    access_status_claim TEXT,
+    redistribution_status_claim TEXT,
+    classification_tags TEXT,
     confidence TEXT,
     notes TEXT,
     updated_at TEXT NOT NULL
@@ -175,6 +193,22 @@ def classify_license(value: str) -> str:
     if any(x in text for x in ("found", "recovered")):
         return "unclear/recovered"
     return "unclear"
+
+
+def infer_provenance_fields(license_status: str, notes: str) -> dict[str, str]:
+    combined = f"{license_status} {notes}".casefold()
+    if any(p in combined for p in (
+        "source code leak", "leaked source", "leaked game",
+        "game leak", "stolen source", "unauthorized source",
+    )):
+        return {"provenance_class": "leak", "leak_status": "reported", "classification_tags": "leaked-content"}
+    if any(p in combined for p in ("reverse engineered", "reverse-engineered", "clean-room")):
+        return {"provenance_class": "reverse-engineered", "leak_status": "not-leak", "classification_tags": "reverse-engineered"}
+    if "recovered" in combined:
+        return {"provenance_class": "archival-recovery", "leak_status": "not-leak", "classification_tags": "archival-recovery"}
+    if any(p in combined for p in ("official source release", "official repository", "released by the developer")):
+        return {"provenance_class": "authorized-source-release", "leak_status": "not-leak", "classification_tags": "authorized-source-release"}
+    return {"provenance_class": "unknown", "leak_status": "suspected" if "leak" in combined else "not-leak", "classification_tags": ""}
 
 
 def classify_source_status(license_status: str, notes: str) -> str:
@@ -236,9 +270,50 @@ def connect() -> sqlite3.Connection:
     return conn
 
 
+def _ensure_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    for name, definition in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(CREATE_SQL)
+        _ensure_columns(conn, "games", {
+            "provenance_class": "TEXT NOT NULL DEFAULT 'unknown'",
+            "leak_status": "TEXT NOT NULL DEFAULT 'not-leak'",
+            "content_types": "TEXT NOT NULL DEFAULT ''",
+            "access_status": "TEXT NOT NULL DEFAULT 'unknown'",
+            "redistribution_status": "TEXT NOT NULL DEFAULT 'unknown'",
+            "classification_tags": "TEXT NOT NULL DEFAULT ''",
+        })
+        _ensure_columns(conn, "discovery_candidates", {
+            "provenance_class": "TEXT NOT NULL DEFAULT 'unknown'",
+            "leak_status": "TEXT NOT NULL DEFAULT 'not-leak'",
+            "content_types": "TEXT NOT NULL DEFAULT ''",
+            "access_status": "TEXT NOT NULL DEFAULT 'unknown'",
+            "redistribution_status": "TEXT NOT NULL DEFAULT 'unknown'",
+            "classification_tags": "TEXT NOT NULL DEFAULT ''",
+        })
+        _ensure_columns(conn, "discovery_evidence", {
+            "provenance_class_claim": "TEXT",
+            "leak_status_claim": "TEXT",
+            "content_type_claim": "TEXT",
+            "access_status_claim": "TEXT",
+            "redistribution_status_claim": "TEXT",
+            "classification_tags": "TEXT",
+        })
+        conn.executescript("""
+            CREATE INDEX IF NOT EXISTS idx_games_provenance ON games(provenance_class);
+            CREATE INDEX IF NOT EXISTS idx_games_leak_status ON games(leak_status);
+            CREATE INDEX IF NOT EXISTS idx_games_access_status ON games(access_status);
+            CREATE INDEX IF NOT EXISTS idx_games_redistribution ON games(redistribution_status);
+            CREATE INDEX IF NOT EXISTS idx_discovery_candidates_provenance ON discovery_candidates(provenance_class);
+            CREATE INDEX IF NOT EXISTS idx_discovery_candidates_leak ON discovery_candidates(leak_status);
+            CREATE INDEX IF NOT EXISTS idx_discovery_candidates_access ON discovery_candidates(access_status);
+            CREATE INDEX IF NOT EXISTS idx_discovery_candidates_redistribution ON discovery_candidates(redistribution_status);
+        """)
         conn.execute(
             "INSERT INTO metadata(key,value) VALUES('schema_version',?) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -273,6 +348,9 @@ def import_csv(path: Path = CSV_PATH) -> int:
             modding = int(row["Modding Potential (1-5)"]) if row["Modding Potential (1-5)"].strip() else None
             candidate = int(row["Rust Port Candidate (1-10)"]) if row["Rust Port Candidate (1-10)"].strip() else None
             stars = int(float(row["GitHub Stars"])) if row["GitHub Stars"].strip() else None
+            classification = infer_provenance_fields(
+                row["License / Status"], row["Verification / Notes"]
+            )
             conn.execute(
                 """INSERT INTO games (
                     popularity_rank, game, game_key, original_year, original_developer,
@@ -280,8 +358,10 @@ def import_csv(path: Path = CSV_PATH) -> int:
                     official_repository, modern_source_port, engine_architecture,
                     modding_potential, rust_port_candidate, github_stars,
                     verification_notes, primary_source, github_owner, github_repo,
-                    license_family, source_status, rust_score_computed
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    license_family, source_status, rust_score_computed,
+                    provenance_class, leak_status, content_types, access_status,
+                    redistribution_status, classification_tags
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     int(row["Popularity Rank"]), row["Game"], normalize_game_key(row["Game"]),
                     row["Original Year"], row["Original Developer"], row["Source Release"],
@@ -292,6 +372,14 @@ def import_csv(path: Path = CSV_PATH) -> int:
                     classify_license(row["License / Status"]),
                     classify_source_status(row["License / Status"], row["Verification / Notes"]),
                     compute_rust_score(row),
+                    row.get("Provenance Class") or classification["provenance_class"],
+                    row.get("Leak Status") or classification["leak_status"],
+                    row.get("Content Types") or (
+                        "source-code" if "source" in row["Source Scope"].casefold() else ""
+                    ),
+                    row.get("Access Status") or "unknown",
+                    row.get("Redistribution Status") or "unknown",
+                    row.get("Classification Tags") or classification["classification_tags"],
                 ),
             )
         for key, value in {
@@ -313,7 +401,9 @@ GAME_COLUMNS = """
     official_repository, modern_source_port, engine_architecture,
     modding_potential, rust_port_candidate, github_stars,
     github_stars_live, github_checked_at, verification_notes, primary_source,
-    github_owner, github_repo, license_family, source_status, rust_score_computed
+    github_owner, github_repo, license_family, source_status, rust_score_computed,
+    provenance_class, leak_status, content_types, access_status,
+    redistribution_status, classification_tags
 """
 
 
@@ -322,6 +412,8 @@ DISCOVERY_CANDIDATE_COLUMNS = """
     linked_game_status, discovery_sources, first_discovered_at,
     discovery_query, discovery_url, review_status, exact_license,
     license_family, source_completeness, authorization_status,
+    provenance_class, leak_status, content_types, access_status,
+    redistribution_status, classification_tags,
     provenance_confidence, evidence_confidence, notes, updated_at
 """
 
@@ -330,6 +422,8 @@ DISCOVERY_EVIDENCE_COLUMNS = """
     evidence_url, evidence_title, accessed_at, evidence_type,
     publisher_or_owner, source_release_date, license_claim,
     source_scope_claim, authorization_signal, source_completeness_claim,
+    provenance_class_claim, leak_status_claim, content_type_claim,
+    access_status_claim, redistribution_status_claim, classification_tags,
     confidence, notes, updated_at
 """
 
@@ -403,8 +497,10 @@ def import_discovery_data(
                         linked_game_status, discovery_sources, first_discovered_at,
                         discovery_query, discovery_url, review_status, exact_license,
                         license_family, source_completeness, authorization_status,
+                        provenance_class, leak_status, content_types, access_status,
+                        redistribution_status, classification_tags,
                         provenance_confidence, evidence_confidence, notes, updated_at
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     ON CONFLICT(candidate_id) DO UPDATE SET
                         game_key=excluded.game_key,
                         candidate_title=excluded.candidate_title,
@@ -420,6 +516,12 @@ def import_discovery_data(
                         license_family=excluded.license_family,
                         source_completeness=excluded.source_completeness,
                         authorization_status=excluded.authorization_status,
+                        provenance_class=excluded.provenance_class,
+                        leak_status=excluded.leak_status,
+                        content_types=excluded.content_types,
+                        access_status=excluded.access_status,
+                        redistribution_status=excluded.redistribution_status,
+                        classification_tags=excluded.classification_tags,
                         provenance_confidence=excluded.provenance_confidence,
                         evidence_confidence=excluded.evidence_confidence,
                         notes=excluded.notes,
@@ -431,8 +533,13 @@ def import_discovery_data(
                         row["discovery_sources"], row["first_discovered_at"],
                         row["discovery_query"], row["discovery_url"], row["review_status"],
                         row["exact_license"], row["license_family"], row["source_completeness"],
-                        row["authorization_status"], row["provenance_confidence"],
-                        row["evidence_confidence"], row["notes"], utc_now(),
+                        row["authorization_status"], row.get("provenance_class") or "unknown",
+                        row.get("leak_status") or "not-leak", row.get("content_types") or "",
+                        row.get("access_status") or "unknown",
+                        row.get("redistribution_status") or "unknown",
+                        row.get("classification_tags") or "",
+                        row["provenance_confidence"], row["evidence_confidence"],
+                        row["notes"], utc_now(),
                     ),
                 )
                 imported["candidates"] += 1
@@ -444,6 +551,12 @@ def import_discovery_data(
                     row["source_release_date"], row["license_claim"],
                     row["source_scope_claim"], row["authorization_signal"],
                     row["source_completeness_claim"],
+                    row.get("provenance_class_claim", "unknown"),
+                    row.get("leak_status_claim", "unknown"),
+                    row.get("content_type_claim", ""),
+                    row.get("access_status_claim", "unknown"),
+                    row.get("redistribution_status_claim", "unknown"),
+                    row.get("classification_tags", ""),
                 )
                 conn.execute(
                     """
@@ -460,8 +573,11 @@ def import_discovery_data(
                         evidence_source, evidence_url, evidence_title, accessed_at,
                         evidence_type, publisher_or_owner, source_release_date,
                         license_claim, source_scope_claim, authorization_signal,
-                        source_completeness_claim, confidence, notes, updated_at
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        source_completeness_claim, provenance_class_claim,
+                        leak_status_claim, content_type_claim, access_status_claim,
+                        redistribution_status_claim, classification_tags,
+                        confidence, notes, updated_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     ON CONFLICT(evidence_id) DO UPDATE SET
                         candidate_id=excluded.candidate_id,
                         evidence_fingerprint=excluded.evidence_fingerprint,
@@ -476,6 +592,12 @@ def import_discovery_data(
                         source_scope_claim=excluded.source_scope_claim,
                         authorization_signal=excluded.authorization_signal,
                         source_completeness_claim=excluded.source_completeness_claim,
+                        provenance_class_claim=excluded.provenance_class_claim,
+                        leak_status_claim=excluded.leak_status_claim,
+                        content_type_claim=excluded.content_type_claim,
+                        access_status_claim=excluded.access_status_claim,
+                        redistribution_status_claim=excluded.redistribution_status_claim,
+                        classification_tags=excluded.classification_tags,
                         confidence=excluded.confidence,
                         notes=excluded.notes,
                         updated_at=excluded.updated_at
@@ -487,6 +609,12 @@ def import_discovery_data(
                         row["publisher_or_owner"], row["source_release_date"],
                         row["license_claim"], row["source_scope_claim"],
                         row["authorization_signal"], row["source_completeness_claim"],
+                        row.get("provenance_class_claim") or "unknown",
+                        row.get("leak_status_claim") or "unknown",
+                        row.get("content_type_claim") or "",
+                        row.get("access_status_claim") or "unknown",
+                        row.get("redistribution_status_claim") or "unknown",
+                        row.get("classification_tags") or "",
                         row["confidence"], row["notes"], utc_now(),
                     ),
                 )
@@ -572,11 +700,33 @@ def discovery_stats() -> dict:
                     "FROM discovery_candidates GROUP BY source_completeness ORDER BY count DESC, completeness"
                 )
             ],
+            "provenance_class": [
+                dict(row) for row in conn.execute(
+                    "SELECT COALESCE(provenance_class,'unknown') AS provenance, COUNT(*) AS count "
+                    "FROM discovery_candidates GROUP BY provenance_class ORDER BY count DESC, provenance"
+                )
+            ],
+            "leak_status": [
+                dict(row) for row in conn.execute(
+                    "SELECT COALESCE(leak_status,'not-leak') AS leak_status, COUNT(*) AS count "
+                    "FROM discovery_candidates GROUP BY leak_status ORDER BY count DESC, leak_status"
+                )
+            ],
         }
 
 
-def discovery_search(query: str = "", review_status: str | None = None,
-                     source: str | None = None, limit: int = 50) -> list[dict]:
+def discovery_search(
+    query: str = "",
+    review_status: str | None = None,
+    source: str | None = None,
+    provenance: str | None = None,
+    leak_status: str | None = None,
+    content_type: str | None = None,
+    access_status: str | None = None,
+    redistribution_status: str | None = None,
+    tag: str | None = None,
+    limit: int = 50,
+) -> list[dict]:
     ensure_database()
     clauses: list[str] = []
     params: list[object] = []
@@ -593,6 +743,24 @@ def discovery_search(query: str = "", review_status: str | None = None,
     if source:
         clauses.append("c.discovery_sources LIKE ?")
         params.append(f"%{source}%")
+    if provenance:
+        clauses.append("c.provenance_class = ?")
+        params.append(provenance)
+    if leak_status:
+        clauses.append("c.leak_status = ?")
+        params.append(leak_status)
+    if content_type:
+        clauses.append("(';' || c.content_types || ';') LIKE ?")
+        params.append(f"%;{content_type};%")
+    if access_status:
+        clauses.append("c.access_status = ?")
+        params.append(access_status)
+    if redistribution_status:
+        clauses.append("c.redistribution_status = ?")
+        params.append(redistribution_status)
+    if tag:
+        clauses.append("(';' || c.classification_tags || ';') LIKE ?")
+        params.append(f"%;{tag};%")
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"""
@@ -635,13 +803,17 @@ def export_discovery(candidates_output: Path, evidence_output: Path,
             "candidate_id","game_key","candidate_title","original_year","developer",
             "linked_game_status","discovery_sources","first_discovered_at","discovery_query",
             "discovery_url","review_status","exact_license","license_family","source_completeness",
-            "authorization_status","provenance_confidence","evidence_confidence","notes",
+            "authorization_status","provenance_class","leak_status","content_types","access_status",
+            "redistribution_status","classification_tags","provenance_confidence",
+            "evidence_confidence","notes",
         ], candidates),
         (evidence_output, [
             "evidence_id","candidate_id","evidence_source","evidence_url","evidence_title",
             "accessed_at","evidence_type","publisher_or_owner","source_release_date",
             "license_claim","source_scope_claim","authorization_signal",
-            "source_completeness_claim","confidence","notes",
+            "source_completeness_claim","provenance_class_claim","leak_status_claim",
+            "content_type_claim","access_status_claim","redistribution_status_claim",
+            "classification_tags","confidence","notes",
         ], evidence),
         (runs_output, [
             "run_id","started_at","completed_at","discovery_source","query_or_collection",
@@ -729,8 +901,10 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                     linked_game_status, discovery_sources, first_discovered_at,
                     discovery_query, discovery_url, review_status, exact_license,
                     license_family, source_completeness, authorization_status,
+                    provenance_class, leak_status, content_types, access_status,
+                    redistribution_status, classification_tags,
                     provenance_confidence, evidence_confidence, notes, updated_at
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(candidate_id) DO UPDATE SET
                     game_key=excluded.game_key,
                     candidate_title=excluded.candidate_title,
@@ -746,6 +920,12 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                     license_family=excluded.license_family,
                     source_completeness=excluded.source_completeness,
                     authorization_status=excluded.authorization_status,
+                    provenance_class=excluded.provenance_class,
+                    leak_status=excluded.leak_status,
+                    content_types=excluded.content_types,
+                    access_status=excluded.access_status,
+                    redistribution_status=excluded.redistribution_status,
+                    classification_tags=excluded.classification_tags,
                     provenance_confidence=excluded.provenance_confidence,
                     evidence_confidence=excluded.evidence_confidence,
                     notes=excluded.notes,
@@ -767,6 +947,12 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                     payload.get("license_family", ""),
                     payload.get("source_completeness", "unknown"),
                     payload.get("authorization_status", "unknown"),
+                    payload.get("provenance_class", "unknown"),
+                    payload.get("leak_status", "not-leak"),
+                    ";".join(payload.get("content_types") or []),
+                    payload.get("access_status", "unknown"),
+                    payload.get("redistribution_status", "unknown"),
+                    ";".join(payload.get("classification_tags") or []),
                     payload.get("provenance_confidence", "low"),
                     payload.get("evidence_confidence", "low"),
                     payload.get("notes", ""),
@@ -793,6 +979,12 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                         evidence.get("source_scope_claim", ""),
                         evidence.get("authorization_signal", ""),
                         evidence.get("source_completeness_claim", ""),
+                        evidence.get("provenance_class_claim", "unknown"),
+                        evidence.get("leak_status_claim", "unknown"),
+                        evidence.get("content_type_claim", ""),
+                        evidence.get("access_status_claim", "unknown"),
+                        evidence.get("redistribution_status_claim", "unknown"),
+                        ";".join(evidence.get("classification_tags") or []),
                     )
                 )
 
@@ -811,8 +1003,11 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                         evidence_source, evidence_url, evidence_title, accessed_at,
                         evidence_type, publisher_or_owner, source_release_date,
                         license_claim, source_scope_claim, authorization_signal,
-                        source_completeness_claim, confidence, notes, updated_at
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        source_completeness_claim, provenance_class_claim,
+                        leak_status_claim, content_type_claim, access_status_claim,
+                        redistribution_status_claim, classification_tags,
+                        confidence, notes, updated_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         evidence_id,
@@ -829,6 +1024,12 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                         evidence.get("source_scope_claim", ""),
                         evidence.get("authorization_signal", ""),
                         evidence.get("source_completeness_claim", ""),
+                        evidence.get("provenance_class_claim", "unknown"),
+                        evidence.get("leak_status_claim", "unknown"),
+                        evidence.get("content_type_claim", ""),
+                        evidence.get("access_status_claim", "unknown"),
+                        evidence.get("redistribution_status_claim", "unknown"),
+                        ";".join(evidence.get("classification_tags") or []),
                         evidence.get("confidence", "low"),
                         evidence.get("notes", ""),
                         utc_now(),
@@ -889,8 +1090,18 @@ def ensure_database() -> None:
         import_csv()
 
 
-def search_games(query: str = "", license: str | None = None,
-                 min_rust_score: int | None = None, limit: int = 50) -> list[dict]:
+def search_games(
+    query: str = "",
+    license: str | None = None,
+    min_rust_score: int | None = None,
+    provenance: str | None = None,
+    leak_status: str | None = None,
+    content_type: str | None = None,
+    access_status: str | None = None,
+    redistribution_status: str | None = None,
+    tag: str | None = None,
+    limit: int = 50,
+) -> list[dict]:
     ensure_database()
     clauses: list[str] = []
     params: list[object] = []
@@ -910,6 +1121,24 @@ def search_games(query: str = "", license: str | None = None,
     if min_rust_score is not None:
         clauses.append("COALESCE(rust_port_candidate, rust_score_computed) >= ?")
         params.append(min_rust_score)
+    if provenance:
+        clauses.append("provenance_class = ?")
+        params.append(provenance)
+    if leak_status:
+        clauses.append("leak_status = ?")
+        params.append(leak_status)
+    if content_type:
+        clauses.append("(';' || content_types || ';') LIKE ?")
+        params.append(f"%;{content_type};%")
+    if access_status:
+        clauses.append("access_status = ?")
+        params.append(access_status)
+    if redistribution_status:
+        clauses.append("redistribution_status = ?")
+        params.append(redistribution_status)
+    if tag:
+        clauses.append("(';' || classification_tags || ';') LIKE ?")
+        params.append(f"%;{tag};%")
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"""
@@ -945,6 +1174,10 @@ def stats() -> dict:
             "source_available": conn.execute("SELECT COUNT(*) FROM games WHERE source_status='source-available'").fetchone()[0],
             "unclear": conn.execute("SELECT COUNT(*) FROM games WHERE source_status='unclear'").fetchone()[0],
             "found_not_authorized": conn.execute("SELECT COUNT(*) FROM games WHERE source_status='found-not-authorized'").fetchone()[0],
+            "leak_records": conn.execute("SELECT COUNT(*) FROM games WHERE leak_status != 'not-leak'").fetchone()[0],
+            "reported_or_suspected_leaks": conn.execute(
+                "SELECT COUNT(*) FROM games WHERE leak_status IN ('reported','suspected')"
+            ).fetchone()[0],
             "with_github_repo": conn.execute("SELECT COUNT(*) FROM games WHERE github_owner IS NOT NULL").fetchone()[0],
             "github_live_checked": conn.execute("SELECT COUNT(*) FROM games WHERE github_checked_at IS NOT NULL").fetchone()[0],
             "avg_rust_score": conn.execute(
@@ -985,6 +1218,8 @@ def export_csv(output: Path) -> int:
         "Official / Primary Repository", "Modern Source Port / Continuation",
         "Engine / Architecture", "Modding Potential (1-5)", "Rust Port Candidate (1-10)",
         "GitHub Stars", "Verification / Notes", "Primary Source",
+        "Provenance Class", "Leak Status", "Content Types", "Access Status",
+        "Redistribution Status", "Classification Tags",
     ]
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8", newline="") as fh:
@@ -999,6 +1234,9 @@ def export_csv(output: Path) -> int:
                 row["rust_port_candidate"] if row["rust_port_candidate"] is not None else "",
                 row["github_stars"] if row["github_stars"] is not None else "",
                 row["verification_notes"], row["primary_source"],
+                row["provenance_class"], row["leak_status"], row["content_types"],
+                row["access_status"], row["redistribution_status"],
+                row["classification_tags"],
             ])
     return len(rows)
 
@@ -1178,6 +1416,12 @@ def parser() -> argparse.ArgumentParser:
     search.add_argument("query", nargs="?", default="")
     search.add_argument("--license")
     search.add_argument("--min-rust-score", type=int)
+    search.add_argument("--provenance")
+    search.add_argument("--leak-status")
+    search.add_argument("--content-type")
+    search.add_argument("--access-status")
+    search.add_argument("--redistribution-status")
+    search.add_argument("--tag")
     search.add_argument("--limit", type=int, default=25)
     search.add_argument("--json", action="store_true")
 
@@ -1210,6 +1454,12 @@ def parser() -> argparse.ArgumentParser:
     discovery.add_argument("query", nargs="?", default="")
     discovery.add_argument("--review-status")
     discovery.add_argument("--source")
+    discovery.add_argument("--provenance")
+    discovery.add_argument("--leak-status")
+    discovery.add_argument("--content-type")
+    discovery.add_argument("--access-status")
+    discovery.add_argument("--redistribution-status")
+    discovery.add_argument("--tag")
     discovery.add_argument("--limit", type=int, default=50)
     discovery.add_argument("--json", action="store_true")
 
@@ -1283,6 +1533,12 @@ def main() -> None:
             args.query,
             license=args.license,
             min_rust_score=args.min_rust_score,
+            provenance=args.provenance,
+            leak_status=args.leak_status,
+            content_type=args.content_type,
+            access_status=args.access_status,
+            redistribution_status=args.redistribution_status,
+            tag=args.tag,
             limit=args.limit,
         )
         if args.json:
@@ -1305,6 +1561,8 @@ def main() -> None:
             print(f"Source available: {payload['source_available']}")
             print(f"Unclear/recovered: {payload['unclear']}")
             print(f"Found but not authorized: {payload['found_not_authorized']}")
+            print(f"Leak records: {payload['leak_records']}")
+            print(f"Reported/suspected leaks: {payload['reported_or_suspected_leaks']}")
             print(f"Rows with GitHub repos: {payload['with_github_repo']}")
             print(f"Rows with live GitHub checks: {payload['github_live_checked']}")
             print(f"Average candidate score: {payload['avg_rust_score']}")
@@ -1373,7 +1631,18 @@ def main() -> None:
         for item in payload["discovery_sources"]:
             print(f"  {item['source']}: {item['count']}")
     elif args.command == "discovery-search":
-        rows = discovery_search(args.query, args.review_status, args.source, args.limit)
+        rows = discovery_search(
+            args.query,
+            args.review_status,
+            args.source,
+            args.provenance,
+            args.leak_status,
+            args.content_type,
+            args.access_status,
+            args.redistribution_status,
+            args.tag,
+            args.limit,
+        )
         if args.json:
             print(json.dumps(rows, ensure_ascii=False, indent=2))
             return

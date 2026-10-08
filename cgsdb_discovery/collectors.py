@@ -35,6 +35,13 @@ SOURCE_KEYWORDS = (
     "apache license",
     "public domain",
     "cc0",
+    "source code leak",
+    "leaked source",
+    "leaked game",
+    "game leak",
+    "stolen source",
+    "unauthorized source",
+    "unreleased source",
 )
 
 LICENSE_RE = re.compile(
@@ -73,6 +80,58 @@ def first_license(text: str) -> str:
     return normalize_space(match.group(1)) if match else ""
 
 
+def classify_provenance_text(text: str) -> tuple[str, str, list[str]]:
+    """Return conservative provenance/leak labels from text; never upgrades a report to confirmed."""
+    haystack = normalize_space(text).casefold()
+    tags: list[str] = []
+    leak_phrases = (
+        "source code leak",
+        "leaked source",
+        "leaked game",
+        "game leak",
+        "source leak",
+        "stolen source",
+        "unauthorized source",
+        "unreleased source",
+        "internal source",
+        "game build leak",
+        "beta leak",
+        "prototype leak",
+        "internal build",
+        "unreleased build",
+    )
+    reverse_phrases = ("reverse engineered", "reverse-engineered", "clean-room reimplementation")
+    recovery_phrases = ("source recovered", "recovered source", "archival recovery", "preservation archive")
+    fan_phrases = ("fan port", "fan-maintained", "community recreation", "fan-made")
+    official_phrases = (
+        "official source release",
+        "official repository",
+        "released by the developer",
+        "released by id software",
+        "open sourced by",
+        "source released by",
+    )
+    if any(p in haystack for p in leak_phrases):
+        tags.append("leaked-content")
+        return "leak", "reported", tags
+    if any(p in haystack for p in reverse_phrases):
+        tags.append("reverse-engineered")
+        return "reverse-engineered", "not-leak", tags
+    if any(p in haystack for p in recovery_phrases):
+        tags.append("archival-recovery")
+        return "archival-recovery", "not-leak", tags
+    if any(p in haystack for p in fan_phrases):
+        tags.append("fan-maintained")
+        return "fan-maintained", "not-leak", tags
+    if any(p in haystack for p in official_phrases):
+        tags.append("authorized-source-release")
+        return "authorized-source-release", "not-leak", tags
+    if "leak" in haystack or "leaked" in haystack:
+        tags.append("possible-leak")
+        return "unknown", "suspected", tags
+    return "unknown", "not-leak", tags
+
+
 def license_family(value: str) -> str:
     text = (value or "").casefold()
     if any(x in text for x in (
@@ -102,7 +161,52 @@ def candidate_from_text(
     source_scope: str = "unknown",
     authorization: str = "unknown",
     completeness: str = "unknown",
+    provenance_class: str = "unknown",
+    leak_status: str = "not-leak",
+    content_types: list[str] | None = None,
+    access_status: str = "unknown",
+    redistribution_status: str = "unknown",
+    classification_tags: list[str] | None = None,
 ) -> CandidateRecord:
+    inferred_origin, inferred_leak, inferred_tags = classify_provenance_text(
+        f"{query} {snippet}"
+    )
+    if provenance_class == "unknown":
+        provenance_class = inferred_origin
+    if leak_status == "not-leak" and inferred_leak != "not-leak":
+        leak_status = inferred_leak
+    if provenance_class == "leak" and authorization == "unknown":
+        authorization = "unauthorized-or-unresolved"
+    if inferred_tags:
+        classification_tags = sorted(set((classification_tags or [])) | set(inferred_tags))
+    if not content_types:
+        content_blob = f"{snippet} {source_scope}".casefold()
+        inferred_types: list[str] = []
+        if "source" in content_blob or "code" in content_blob:
+            inferred_types.append("source-code")
+        if any(x in content_blob for x in ("binary", "build", "executable", "game files")):
+            inferred_types.append("binary")
+        if any(x in content_blob for x in ("full game", "complete game", "retail game", "game dump")):
+            inferred_types.append("full-game")
+        if any(x in content_blob for x in ("beta", "prototype", "alpha", "internal build")):
+            inferred_types.append("prototype-or-beta")
+        if any(x in content_blob for x in ("sdk", "development kit")):
+            inferred_types.append("sdk")
+        if any(x in content_blob for x in ("server", "dedicated server", "backend")):
+            inferred_types.append("server")
+        if any(x in content_blob for x in ("documentation", "docs", "manual")):
+            inferred_types.append("documentation")
+        if any(x in content_blob for x in ("assets", "artwork", "sound", "music")):
+            inferred_types.append("assets")
+        content_types = inferred_types or []
+    if access_status == "unknown" and source in {"github", "steamdb", "internet-archive", "developer-site", "wayback"}:
+        access_status = "public"
+    if redistribution_status == "unknown":
+        if license_family(license_hint or first_license(snippet)) in {"open-source", "public-domain"}:
+            redistribution_status = "allowed"
+        elif provenance_class == "leak":
+            redistribution_status = "forbidden"
+
     candidate = CandidateRecord(
         candidate_title=normalize_space(title),
         developer=normalize_space(developer),
@@ -115,6 +219,12 @@ def candidate_from_text(
         license_family=license_family(license_hint or first_license(snippet)),
         source_completeness=completeness,
         authorization_status=authorization,
+        provenance_class=provenance_class,
+        leak_status=leak_status,
+        content_types=list(content_types or []),
+        access_status=access_status,
+        redistribution_status=redistribution_status,
+        classification_tags=list(classification_tags or []),
         provenance_confidence="medium" if source in {"developer-site", "github"} else "low",
         evidence_confidence="medium" if source in {"developer-site", "github"} else "low",
         notes=normalize_space(snippet)[:2000],
@@ -133,6 +243,12 @@ def candidate_from_text(
             source_scope_claim=source_scope,
             authorization_signal=authorization,
             source_completeness_claim=completeness,
+            provenance_class_claim=provenance_class,
+            leak_status_claim=leak_status,
+            content_type_claim=";".join(sorted(set(content_types or []))),
+            access_status_claim=access_status,
+            redistribution_status_claim=redistribution_status,
+            classification_tags=list(classification_tags or []),
             confidence="medium" if source in {"developer-site", "github"} else "low",
             notes=normalize_space(snippet)[:3000],
         )
@@ -492,6 +608,17 @@ class GitHubCollector:
             if status == 200:
                 readme_text = normalize_space(body)
 
+        readme_origin, readme_leak, readme_tags = classify_provenance_text(readme_text)
+        if readme_origin != "unknown":
+            candidate.provenance_class = readme_origin
+        if readme_leak != "not-leak":
+            candidate.leak_status = readme_leak
+        candidate.classification_tags = sorted(
+            set(candidate.classification_tags) | set(readme_tags)
+        )
+        if "source" in readme_text.casefold() and "source-code" not in candidate.content_types:
+            candidate.content_types = sorted(set(candidate.content_types) | {"source-code"})
+
         readme_signals = [k for k in SOURCE_KEYWORDS if k in readme_text.casefold()]
         readme_license = first_license(readme_text)
         exact_license = license_name or readme_license or first_license(license_text)
@@ -523,6 +650,12 @@ class GitHubCollector:
                     publisher_or_owner=owner,
                     license_claim=license_claim,
                     source_scope_claim="repository-license",
+                    provenance_class_claim=candidate.provenance_class,
+                    leak_status_claim=candidate.leak_status,
+                    content_type_claim=";".join(candidate.content_types),
+                    access_status_claim=candidate.access_status,
+                    redistribution_status_claim=candidate.redistribution_status,
+                    classification_tags=candidate.classification_tags,
                     confidence="high",
                     notes=normalize_space(license_text)[:3000],
                 )
@@ -539,6 +672,12 @@ class GitHubCollector:
                     publisher_or_owner=owner,
                     license_claim=readme_license,
                     source_scope_claim="repository-documentation",
+                    provenance_class_claim=candidate.provenance_class,
+                    leak_status_claim=candidate.leak_status,
+                    content_type_claim=";".join(candidate.content_types),
+                    access_status_claim=candidate.access_status,
+                    redistribution_status_claim=candidate.redistribution_status,
+                    classification_tags=candidate.classification_tags,
                     authorization_signal=(
                         "possible-authorized-release"
                         if any(

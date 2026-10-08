@@ -59,6 +59,9 @@ The catalog now contains **227 records**. This is deliberately a high-recall pre
 
 The repository now includes asynchronous discovery collectors for **Internet Archive, GitHub, SteamDB, Wayback, developer/rightsholder sites, and IGDB**. The deep-discovery path now uses the Internet Archive cursor scraper, enumerates SteamDB source-like packages attached to discovered apps, and automatically inspects GitHub LICENSE and README content for stronger provenance signals.
 
+The discovery/provenance layer also tracks **leaked, unauthorized, recovered, reverse-engineered, fan-maintained, and authorized source availability separately**. Leak records are research metadata rather than open-source approvals. Classification is faceted so users can filter by provenance, leak status, content type, access state, redistribution rights, authorization, and custom tags.
+
+
 Install the optional collector dependency:
 
 ```bash
