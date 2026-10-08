@@ -73,6 +73,53 @@ def first_license(text: str) -> str:
     return normalize_space(match.group(1)) if match else ""
 
 
+def classify_provenance_text(text: str) -> tuple[str, str, list[str]]:
+    """Return conservative provenance/leak labels from text; never upgrades a report to confirmed."""
+    haystack = normalize_space(text).casefold()
+    tags: list[str] = []
+    leak_phrases = (
+        "source code leak",
+        "leaked source",
+        "leaked game",
+        "game leak",
+        "source leak",
+        "stolen source",
+        "unauthorized source",
+        "unreleased source",
+        "internal source",
+    )
+    reverse_phrases = ("reverse engineered", "reverse-engineered", "clean-room reimplementation")
+    recovery_phrases = ("source recovered", "recovered source", "archival recovery", "preservation archive")
+    fan_phrases = ("fan port", "fan-maintained", "community recreation", "fan-made")
+    official_phrases = (
+        "official source release",
+        "official repository",
+        "released by the developer",
+        "released by id software",
+        "open sourced by",
+        "source released by",
+    )
+    if any(p in haystack for p in leak_phrases):
+        tags.append("leaked-content")
+        return "leak", "reported", tags
+    if any(p in haystack for p in reverse_phrases):
+        tags.append("reverse-engineered")
+        return "reverse-engineered", "not-leak", tags
+    if any(p in haystack for p in recovery_phrases):
+        tags.append("archival-recovery")
+        return "archival-recovery", "not-leak", tags
+    if any(p in haystack for p in fan_phrases):
+        tags.append("fan-maintained")
+        return "fan-maintained", "not-leak", tags
+    if any(p in haystack for p in official_phrases):
+        tags.append("authorized-source-release")
+        return "authorized-source-release", "not-leak", tags
+    if "leak" in haystack or "leaked" in haystack:
+        tags.append("possible-leak")
+        return "unknown", "suspected", tags
+    return "unknown", "not-leak", tags
+
+
 def license_family(value: str) -> str:
     text = (value or "").casefold()
     if any(x in text for x in (
@@ -102,6 +149,12 @@ def candidate_from_text(
     source_scope: str = "unknown",
     authorization: str = "unknown",
     completeness: str = "unknown",
+    provenance_class: str = "unknown",
+    leak_status: str = "not-leak",
+    content_types: list[str] | None = None,
+    access_status: str = "unknown",
+    redistribution_status: str = "unknown",
+    classification_tags: list[str] | None = None,
 ) -> CandidateRecord:
     candidate = CandidateRecord(
         candidate_title=normalize_space(title),
@@ -115,6 +168,12 @@ def candidate_from_text(
         license_family=license_family(license_hint or first_license(snippet)),
         source_completeness=completeness,
         authorization_status=authorization,
+        provenance_class=provenance_class,
+        leak_status=leak_status,
+        content_types=list(content_types or []),
+        access_status=access_status,
+        redistribution_status=redistribution_status,
+        classification_tags=list(classification_tags or []),
         provenance_confidence="medium" if source in {"developer-site", "github"} else "low",
         evidence_confidence="medium" if source in {"developer-site", "github"} else "low",
         notes=normalize_space(snippet)[:2000],
@@ -133,6 +192,12 @@ def candidate_from_text(
             source_scope_claim=source_scope,
             authorization_signal=authorization,
             source_completeness_claim=completeness,
+            provenance_class_claim=provenance_class,
+            leak_status_claim=leak_status,
+            content_type_claim=";".join(sorted(set(content_types or []))),
+            access_status_claim=access_status,
+            redistribution_status_claim=redistribution_status,
+            classification_tags=list(classification_tags or []),
             confidence="medium" if source in {"developer-site", "github"} else "low",
             notes=normalize_space(snippet)[:3000],
         )
