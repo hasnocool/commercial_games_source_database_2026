@@ -29,7 +29,7 @@ DISCOVERY_CANDIDATES_PATH = DISCOVERY_DIR / "candidates.csv"
 DISCOVERY_EVIDENCE_PATH = DISCOVERY_DIR / "evidence.csv"
 DISCOVERY_RUNS_PATH = DISCOVERY_DIR / "runs.csv"
 DB_PATH = DATA_DIR / "games.db"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 GITHUB_RE = re.compile(r"https?://github\.com/([^/]+)/([^/#?]+)", re.IGNORECASE)
 NON_ALNUM = re.compile(r"[^a-z0-9]+")
@@ -69,7 +69,13 @@ CREATE TABLE IF NOT EXISTS games (
     github_repo TEXT,
     license_family TEXT NOT NULL,
     source_status TEXT NOT NULL,
-    rust_score_computed INTEGER NOT NULL
+    rust_score_computed INTEGER NOT NULL,
+    provenance_class TEXT NOT NULL DEFAULT 'unknown',
+    leak_status TEXT NOT NULL DEFAULT 'not-leak',
+    content_types TEXT NOT NULL DEFAULT '',
+    access_status TEXT NOT NULL DEFAULT 'unknown',
+    redistribution_status TEXT NOT NULL DEFAULT 'unknown',
+    classification_tags TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_games_popularity ON games(popularity_rank);
@@ -95,6 +101,12 @@ CREATE TABLE IF NOT EXISTS discovery_candidates (
     license_family TEXT,
     source_completeness TEXT,
     authorization_status TEXT,
+    provenance_class TEXT NOT NULL DEFAULT 'unknown',
+    leak_status TEXT NOT NULL DEFAULT 'not-leak',
+    content_types TEXT NOT NULL DEFAULT '',
+    access_status TEXT NOT NULL DEFAULT 'unknown',
+    redistribution_status TEXT NOT NULL DEFAULT 'unknown',
+    classification_tags TEXT NOT NULL DEFAULT '',
     provenance_confidence TEXT,
     evidence_confidence TEXT,
     notes TEXT,
@@ -122,6 +134,12 @@ CREATE TABLE IF NOT EXISTS discovery_evidence (
     source_scope_claim TEXT,
     authorization_signal TEXT,
     source_completeness_claim TEXT,
+    provenance_class_claim TEXT,
+    leak_status_claim TEXT,
+    content_type_claim TEXT,
+    access_status_claim TEXT,
+    redistribution_status_claim TEXT,
+    classification_tags TEXT,
     confidence TEXT,
     notes TEXT,
     updated_at TEXT NOT NULL
