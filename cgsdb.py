@@ -963,6 +963,12 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                         evidence.get("source_scope_claim", ""),
                         evidence.get("authorization_signal", ""),
                         evidence.get("source_completeness_claim", ""),
+                        evidence.get("provenance_class_claim", "unknown"),
+                        evidence.get("leak_status_claim", "unknown"),
+                        evidence.get("content_type_claim", ""),
+                        evidence.get("access_status_claim", "unknown"),
+                        evidence.get("redistribution_status_claim", "unknown"),
+                        ";".join(evidence.get("classification_tags") or []),
                     )
                 )
 
