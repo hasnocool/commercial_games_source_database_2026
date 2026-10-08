@@ -72,6 +72,16 @@ These are candidate-generation signals. The classifier intentionally uses conser
 
 These filters are ANDed, so several dimensions can be combined.
 
+### itch.io source listings
+
+An itch.io page may advertise a complete project, source files, or an external repository. The sourcecode tag alone is not sufficient evidence that the game's own source is available, so the collector requires stronger page-level source signals or a source/repository link.
+
+A listing may be free or paid while still having restrictive licensing. paid-source-code, exact_license, authorization_status, source_completeness, and redistribution_status therefore remain separate facets.
+
+### Leak discovery
+
+Leak-oriented terms such as leaked source, pirated source, source dump, code dump, stolen source code, internal source leak, and unreleased build increase recall. A search hit is not automatically a confirmed leak, and a publicly reachable copy is not evidence of authorization or redistribution rights.
+
 ## Safety and provenance
 
 The database may record public reporting, archive metadata, repository metadata, package metadata, timestamps, license claims, and other provenance facts concerning leaked material. It should not be used to redistribute or facilitate access to copyrighted source code or commercial game assets when the applicable rights do not permit that use.
