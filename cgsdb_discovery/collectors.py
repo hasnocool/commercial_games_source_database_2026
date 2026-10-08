@@ -1396,6 +1396,16 @@ class ItchioCollector:
                 url = self.tag_page_url(tag, page)
                 listing_urls.setdefault(url, url)
 
+        # Title filters also become direct public itch.io searches. This lets
+        # the caller cross-check known commercial titles even when they are not
+        # tagged as source-code listings.
+        for title in self.title_filters:
+            query_url = (
+                "https://itch.io/search?classification=game&type=games&q="
+                + quote_plus(title)
+            )
+            listing_urls.setdefault(query_url, query_url)
+
         all_games: OrderedDict[str, tuple[str, str]] = OrderedDict()
         errors: list[dict[str, str]] = []
 
