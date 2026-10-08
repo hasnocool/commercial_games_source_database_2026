@@ -338,6 +338,9 @@ def import_csv(path: Path = CSV_PATH) -> int:
             modding = int(row["Modding Potential (1-5)"]) if row["Modding Potential (1-5)"].strip() else None
             candidate = int(row["Rust Port Candidate (1-10)"]) if row["Rust Port Candidate (1-10)"].strip() else None
             stars = int(float(row["GitHub Stars"])) if row["GitHub Stars"].strip() else None
+            classification = infer_provenance_fields(
+                row["License / Status"], row["Verification / Notes"]
+            )
             conn.execute(
                 """INSERT INTO games (
                     popularity_rank, game, game_key, original_year, original_developer,
@@ -345,8 +348,10 @@ def import_csv(path: Path = CSV_PATH) -> int:
                     official_repository, modern_source_port, engine_architecture,
                     modding_potential, rust_port_candidate, github_stars,
                     verification_notes, primary_source, github_owner, github_repo,
-                    license_family, source_status, rust_score_computed
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    license_family, source_status, rust_score_computed,
+                    provenance_class, leak_status, content_types, access_status,
+                    redistribution_status, classification_tags
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     int(row["Popularity Rank"]), row["Game"], normalize_game_key(row["Game"]),
                     row["Original Year"], row["Original Developer"], row["Source Release"],
@@ -357,6 +362,14 @@ def import_csv(path: Path = CSV_PATH) -> int:
                     classify_license(row["License / Status"]),
                     classify_source_status(row["License / Status"], row["Verification / Notes"]),
                     compute_rust_score(row),
+                    row.get("Provenance Class") or classification["provenance_class"],
+                    row.get("Leak Status") or classification["leak_status"],
+                    row.get("Content Types") or (
+                        "source-code" if "source" in row["Source Scope"].casefold() else ""
+                    ),
+                    row.get("Access Status") or "unknown",
+                    row.get("Redistribution Status") or "unknown",
+                    row.get("Classification Tags") or classification["classification_tags"],
                 ),
             )
         for key, value in {
