@@ -6,15 +6,15 @@ The collector framework is designed for **high recall first, verification second
 
 ### Internet Archive
 
-Uses the public Advanced Search API and searches several complementary queries. Internet Archive also exposes a cursor-based scraping API for deeper searches; the first implementation uses paged Advanced Search because it is easier to bound and resume deterministically. Internet Archive documents a 10,000-result limit for sorted Advanced Search pagination and a separate scraping API for deeper paging.
+Uses the cursor-based Scraping API by default, so a query can continue past Advanced Search's 10,000-result paging ceiling. Each query follows the returned continuation cursor for a bounded number of batches and records the observed cursor/depth in run metadata. The legacy Advanced Search path remains available with `--ia-no-cursor` for compatibility/reproduction.
 
 ### GitHub
 
-Uses the GitHub REST repository search API. Authentication is optional for public data, but a `GITHUB_TOKEN` is strongly recommended for repeated sweeps. GitHub's current documentation lists 60 requests/hour unauthenticated and 5,000 requests/hour authenticated for the primary REST limit, with stricter search/secondary limits. The collector therefore bounds concurrency and honors retry/backoff signals.
+Uses the GitHub REST repository search API and then automatically inspects up to a configurable number of unique repositories. Inspection calls GitHub's `/license` endpoint and `/readme` endpoint, decodes the license file when available, extracts README source-release/license signals, and records separate license/README evidence. Authentication is optional for public data, but a `GITHUB_TOKEN` is strongly recommended for repeated sweeps. GitHub's current documentation lists 60 requests/hour unauthenticated and 5,000 requests/hour authenticated for the primary REST limit, with stricter search/secondary limits, so `--github-inspect-limit` keeps the deep phase bounded.
 
 ### SteamDB
 
-Uses public SteamDB search/package HTML as a discovery surface. This is especially useful for source-code packages that are represented as apps/DLC/packages rather than ordinary game repositories. SteamDB can expose dedicated source-code packages and package metadata, but the collector treats its results as discovery evidence until the source/license is independently verified.
+Uses public SteamDB search HTML as the first-pass app enumerator, then expands each discovered app through its `/app/<id>/subs/` package page. Source-like package names are selected and their individual `/sub/<id>/` pages are fetched for package metadata, license text and source-completeness language. This catches dedicated source-code packages that ordinary game searches miss. Package discoveries remain evidence leads until the source/license is independently verified.
 
 ### Wayback
 
@@ -47,6 +47,15 @@ The JSONL is intentionally raw-ish staging data. It can be inspected, filtered, 
 # Everything configured by the collector defaults.
 python -m cgsdb_discovery.runner \
   --output data/discovery/inbox/latest.jsonl
+
+# Deeper IA cursor sweep plus larger GitHub/SteamDB expansion.
+python -m cgsdb_discovery.runner \
+  --sources internet-archive,github,steamdb \
+  --ia-cursor-batches 25 \
+  --ia-cursor-count 1000 \
+  --github-pages 5 \
+  --github-inspect-limit 300 \
+  --output data/discovery/inbox/deep.jsonl
 
 # Internet Archive only.
 python -m cgsdb_discovery.runner \
@@ -134,7 +143,7 @@ IGDB requires a Twitch developer application and OAuth client-credentials flow. 
 
 ### SteamDB
 
-SteamDB does not expose the same general public REST API surface as GitHub/IGDB for this use case, so the collector uses public HTML search pages and treats the resulting package/app pages as discovery evidence. This is particularly valuable for dedicated source-code packages; SteamDB's Crongdor listing, for example, explicitly describes a complete C++ source package and its GPLv3 terms. urlCrongdor source-code package on SteamDBhttps://steamdb.info/app/488190/subs/
+SteamDB does not expose the same general public REST API surface as GitHub/IGDB for this use case, so the collector uses public HTML. The package enumerator expands app package pages and follows source-like `/sub/<id>/` records. This is particularly valuable for dedicated source-code packages; SteamDB's Crongdor listing, for example, explicitly describes a complete C++ source package and its GPLv3 terms. urlCrongdor source-code package on SteamDBhttps://steamdb.info/app/488190/subs/
 
 ### Raw versus promoted data
 
