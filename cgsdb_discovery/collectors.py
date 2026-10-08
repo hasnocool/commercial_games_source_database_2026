@@ -163,6 +163,8 @@ def candidate_from_text(
         provenance_class = inferred_origin
     if leak_status == "not-leak" and inferred_leak != "not-leak":
         leak_status = inferred_leak
+    if provenance_class == "leak" and authorization == "unknown":
+        authorization = "unauthorized-or-unresolved"
     if inferred_tags:
         classification_tags = sorted(set((classification_tags or [])) | set(inferred_tags))
     if not content_types:
@@ -626,6 +628,12 @@ class GitHubCollector:
                     publisher_or_owner=owner,
                     license_claim=license_claim,
                     source_scope_claim="repository-license",
+                    provenance_class_claim=candidate.provenance_class,
+                    leak_status_claim=candidate.leak_status,
+                    content_type_claim=";".join(candidate.content_types),
+                    access_status_claim=candidate.access_status,
+                    redistribution_status_claim=candidate.redistribution_status,
+                    classification_tags=candidate.classification_tags,
                     confidence="high",
                     notes=normalize_space(license_text)[:3000],
                 )
