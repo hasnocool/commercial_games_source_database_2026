@@ -402,13 +402,23 @@ class InternetArchiveCollector:
             )
         candidates: list[CandidateRecord] = []
         errors: list[dict[str, str]] = []
+        metadata: dict[str, Any] = {
+            "mode": "cursor" if use_cursor else "advanced-search",
+            "queries": [],
+        }
         for result in results:
             if isinstance(result, Exception):
                 errors.append({"query": "batch", "error": str(result)})
             else:
                 candidates.extend(result.candidates)
                 errors.extend(result.errors)
-        return CollectorResult(self.name, candidates, errors)
+                metadata["queries"].append(result.metadata)
+        return CollectorResult(
+            self.name,
+            candidates,
+            errors,
+            metadata=metadata,
+        )
 
 
 class GitHubCollector:
