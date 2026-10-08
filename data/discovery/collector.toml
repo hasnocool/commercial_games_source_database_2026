@@ -13,6 +13,10 @@ queries = [
 ]
 pages = 5
 rows = 100
+# Deep cursor scraper. Set false only when reproducing legacy Advanced Search paging.
+use_cursor = true
+cursor_batches = 10
+cursor_count = 1000
 
 [github]
 queries = [
@@ -25,6 +29,8 @@ queries = [
   ""source release" game",
 ]
 pages = 3
+# Inspect up to this many unique repositories after search.
+inspect_limit = 200
 
 [steamdb]
 # SteamDB is queried through public HTML search pages because there is no
@@ -35,7 +41,15 @@ searches = [
   "open source",
   "GPL",
   "MIT",
+  "source release",
+  "released source",
+  "game source code",
+  "source package",
 ]
+# Optional known app IDs are useful for direct package enumeration.
+app_ids = []
+# Enumerate package pages for at most this many unique apps per run.
+max_apps = 250
 
 [wayback]
 # Add developer/publisher domains or exact URLs here.
