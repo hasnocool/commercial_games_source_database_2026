@@ -10,6 +10,38 @@ from typing import Any
 
 NON_ALNUM = re.compile(r"[^a-z0-9]+")
 
+PROVENANCE_CLASSES = {
+    "official-authorized",
+    "authorized-source-release",
+    "leak",
+    "archival-recovery",
+    "reverse-engineered",
+    "fan-maintained",
+    "unknown",
+}
+LEAK_STATUSES = {
+    "not-leak",
+    "reported",
+    "suspected",
+    "confirmed",
+    "historical-confirmed",
+    "unknown",
+}
+ACCESS_STATUSES = {
+    "public",
+    "restricted",
+    "removed",
+    "private",
+    "dead-link",
+    "unknown",
+}
+REDISTRIBUTION_STATUSES = {
+    "allowed",
+    "restricted",
+    "forbidden",
+    "unknown",
+}
+
 
 def game_key(title: str) -> str:
     return NON_ALNUM.sub("-", title.casefold()).strip("-") or "game"
@@ -34,6 +66,12 @@ class EvidenceRecord:
     source_scope_claim: str = ""
     authorization_signal: str = ""
     source_completeness_claim: str = ""
+    provenance_class_claim: str = "unknown"
+    leak_status_claim: str = "unknown"
+    content_type_claim: str = ""
+    access_status_claim: str = "unknown"
+    redistribution_status_claim: str = "unknown"
+    classification_tags: list[str] = field(default_factory=list)
     confidence: str = "low"
     notes: str = ""
 
@@ -49,6 +87,12 @@ class EvidenceRecord:
             self.source_scope_claim,
             self.authorization_signal,
             self.source_completeness_claim,
+            self.provenance_class_claim,
+            self.leak_status_claim,
+            self.content_type_claim,
+            self.access_status_claim,
+            self.redistribution_status_claim,
+            ";".join(sorted(set(self.classification_tags))),
         )
 
     def fingerprint(self) -> str:
@@ -81,6 +125,12 @@ class CandidateRecord:
     license_family: str = ""
     source_completeness: str = "unknown"
     authorization_status: str = "unknown"
+    provenance_class: str = "unknown"
+    leak_status: str = "not-leak"
+    content_types: list[str] = field(default_factory=list)
+    access_status: str = "unknown"
+    redistribution_status: str = "unknown"
+    classification_tags: list[str] = field(default_factory=list)
     provenance_confidence: str = "low"
     evidence_confidence: str = "low"
     notes: str = ""
@@ -96,6 +146,16 @@ class CandidateRecord:
         self.game_key = self.game_key or game_key(self.candidate_title)
         self.discovery_sources = sorted(set(x.strip() for x in self.discovery_sources if x and x.strip()))
         self.discovery_sources = self.discovery_sources or ["unknown"]
+        if self.provenance_class not in PROVENANCE_CLASSES:
+            self.provenance_class = "unknown"
+        if self.leak_status not in LEAK_STATUSES:
+            self.leak_status = "unknown"
+        if self.access_status not in ACCESS_STATUSES:
+            self.access_status = "unknown"
+        if self.redistribution_status not in REDISTRIBUTION_STATUSES:
+            self.redistribution_status = "unknown"
+        self.content_types = sorted({x.strip() for x in self.content_types if x and x.strip()})
+        self.classification_tags = sorted({x.strip() for x in self.classification_tags if x and x.strip()})
 
     def to_json(self) -> dict[str, Any]:
         self.normalize()
