@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from difflib import SequenceMatcher
 from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -88,6 +89,112 @@ def normalize_space(text: str) -> str:
 def first_license(text: str) -> str:
     match = LICENSE_RE.search(text or "")
     return normalize_space(match.group(1)) if match else ""
+
+ITCH_ENGINE_NAMES = (
+    "Unity", "Unreal Engine", "Godot", "GameMaker", "GameMaker Studio",
+    "Construct", "Defold", "Ren'Py", "RPG Maker", "Twine", "Bevy",
+    "MonoGame", "XNA", "LÖVE", "Love2D", "PICO-8", "GDevelop",
+    "Clickteam Fusion", "Adventure Game Studio", "AGS", "Solar2D",
+    "Cocos2d", "Cocos Creator", "HaxeFlixel", "libGDX", "Phaser",
+    "Three.js", "Babylon.js", "OpenFL", "Kha", "Godot Engine",
+)
+
+ITCH_SOURCE_FILE_HINTS = (
+    ".zip", ".7z", ".tar", ".tar.gz", ".tgz", ".rar",
+    ".unitypackage", ".uproject", ".uasset", ".godot",
+    ".blend", ".love", ".gproj", ".yyp", ".yyz", ".rpgproject",
+    ".gdevelop", ".p8", ".tres", ".tscn",
+)
+
+ITCH_SOURCE_NAME_HINTS = (
+    "source", "src", "sourcecode", "source-code", "project",
+    "game-project", "full-project", "complete-project", "development",
+)
+
+def title_match_confidence(expected: str, observed: str) -> float:
+    expected = normalize_space(expected).casefold()
+    observed = normalize_space(observed).casefold()
+    if not expected or not observed:
+        return 0.0
+    if expected == observed:
+        return 1.0
+    ratio = SequenceMatcher(None, expected, observed).ratio()
+    expected_tokens = set(re.findall(r"[a-z0-9]+", expected))
+    observed_tokens = set(re.findall(r"[a-z0-9]+", observed))
+    if expected_tokens and observed_tokens:
+        overlap = len(expected_tokens & observed_tokens) / max(len(expected_tokens), len(observed_tokens))
+        ratio = max(ratio, overlap)
+    return round(min(1.0, ratio), 3)
+
+def detect_itch_engines(text: str) -> list[str]:
+    haystack = normalize_space(text).casefold()
+    found = []
+    for name in ITCH_ENGINE_NAMES:
+        if name.casefold() in haystack:
+            found.append(name)
+    return sorted(set(found))
+
+def classify_itch_price(text: str) -> tuple[str, str]:
+    haystack = normalize_space(text).casefold()
+    if any(x in haystack for x in (
+        "no thanks, just take me to the downloads",
+        "download for free",
+        "free download",
+        "free to download",
+        "no payments",
+    )):
+        return "free", "0"
+    if "pay what you want" in haystack or "pay any amount" in haystack:
+        return "pay-what-you-want", "0"
+    price = re.search(r"(?:minimum price|price|pay)\\s*[:\\-]?\\s*(\\$\\s?\\d+(?:[.,]\\d{2})?)", haystack)
+    if price:
+        return "paid", normalize_space(price.group(1))
+    if re.search(r"\\$\\d+(?:[.,]\\d{2})?", haystack):
+        return "paid", normalize_space(re.search(r"\\$\\d+(?:[.,]\\d{2})?", haystack).group(0))
+    return "unknown", ""
+
+def inspect_itch_downloads(url: str, body: str) -> tuple[str, str, list[str]]:
+    parser = LinkTextParser()
+    parser.feed(body)
+    files = []
+    for href, link_text in parser.links:
+        absolute = urljoin(url, href)
+        haystack = f"{link_text} {absolute}".casefold()
+        if any(ext in haystack for ext in ITCH_SOURCE_FILE_HINTS) or any(
+            hint in haystack for hint in ITCH_SOURCE_NAME_HINTS
+        ):
+            label = normalize_space(link_text) or absolute.rsplit("/", 1)[-1]
+            if label and label not in files:
+                files.append(label[:300])
+    page = normalize_space(re.sub(r"<[^>]+>", " ", body)).casefold()
+    has_source_claim = any(
+        phrase in page for phrase in (
+            "source code included", "full source code", "complete source code",
+            "full project", "complete project", "project files included",
+            "source files included",
+        )
+    )
+    if files and has_source_claim:
+        return "yes", "high", files[:50]
+    if files:
+        return "likely", "medium", files[:50]
+    return "unknown", "low", []
+
+def extract_itch_creator(url: str, body: str) -> tuple[str, str]:
+    parsed = urlparse(url)
+    username = parsed.netloc.split(".", 1)[0] if parsed.netloc else ""
+    display = ""
+    parser = LinkTextParser()
+    parser.feed(body)
+    for href, link_text in parser.links:
+        p = urlparse(urljoin(url, href))
+        host = p.netloc.casefold().split(":", 1)[0]
+        if host == f"{username}.itch.io" and p.path in {"", "/"}:
+            text_value = normalize_space(link_text)
+            if text_value:
+                display = text_value
+                break
+    return username, display
 
 
 def classify_provenance_text(text: str) -> tuple[str, str, list[str]]:
@@ -1249,47 +1356,53 @@ class ItchioCollector:
         haystack = plain.casefold()
 
         source_hits = [
-            phrase
-            for phrase in self.SOURCE_CLAIM_PHRASES
-            if phrase in haystack
+            phrase for phrase in self.SOURCE_CLAIM_PHRASES if phrase in haystack
         ]
         source_links = self._source_links(url, body)
 
-        # The sourcecode tag is intentionally noisy. Require a page-level
-        # source claim or an external repository link before emitting a record.
         if not source_hits and not source_links:
             return None
 
-        origin, leak_status, leak_tags = classify_provenance_text(
-            f"{plain} {url}"
-        )
+        origin, leak_status, leak_tags = classify_provenance_text(f"{plain} {url}")
         exact_license = first_license(plain)
-        complete = any(
-            phrase in haystack
-            for phrase in self.COMPLETE_SOURCE_PHRASES
-        )
+        complete = any(phrase in haystack for phrase in self.COMPLETE_SOURCE_PHRASES)
 
         parsed = urlparse(url)
-        creator = parsed.netloc.split(".", 1)[0] if parsed.netloc else ""
+        creator_username, creator_display = extract_itch_creator(url, body)
+        creator = creator_display or creator_username or (parsed.netloc.split(".", 1)[0] if parsed.netloc else "")
         title = normalize_space(meta.title or listing_title) or url
+
+        expected_title = listing_title
+        if self.title_filters:
+            expected_title = min(
+                self.title_filters,
+                key=lambda candidate: abs(len(candidate) - len(title.casefold())),
+            )
+        title_confidence = title_match_confidence(expected_title, title) if expected_title else None
+
+        engines = detect_itch_engines(plain)
+        price_status, min_price = classify_itch_price(plain)
+        download_status, download_confidence, downloadable_files = inspect_itch_downloads(url, body)
+        source_repo = source_links[0][0] if source_links else ""
 
         if complete and "full game" in haystack:
             content_types = ["source-code", "full-game"]
         else:
             content_types = ["source-code"]
 
-        paid = any(
-            token in haystack
-            for token in ("buy", "purchase", "price", "$", "pay what you want")
-        )
-
         tags = set(leak_tags) | {"itchio", "source-code-listing"}
         if complete:
             tags.add("complete-source-claim")
         if source_links:
             tags.add("external-source-repository")
-        if paid and source_hits:
+        if price_status == "paid":
             tags.add("paid-source-code")
+        if price_status == "free":
+            tags.add("free-source-code")
+        if engines:
+            tags.update(f"engine:{engine.casefold().replace(' ', '-')}" for engine in engines)
+        if download_status in {"yes", "likely"}:
+            tags.add("downloadable-project-evidence")
 
         candidate = candidate_from_text(
             title=title,
@@ -1301,32 +1414,43 @@ class ItchioCollector:
             license_hint=exact_license,
             source_scope="itchio-game-page",
             authorization=(
-                "unauthorized-or-unresolved"
-                if origin == "leak"
-                else "seller-published"
+                "unauthorized-or-unresolved" if origin == "leak" else "seller-published"
             ),
-            completeness=(
-                "complete-source-claim"
-                if complete
-                else "source-code-claim"
-            ),
+            completeness="complete-source-claim" if complete else "source-code-claim",
             provenance_class=origin,
             leak_status=leak_status,
             content_types=content_types,
             access_status="public",
             redistribution_status=(
-                "forbidden"
-                if origin == "leak"
-                else (
-                    "allowed"
-                    if license_family(exact_license)
-                    in {"open-source", "public-domain"}
-                    else "unknown"
+                "forbidden" if origin == "leak" else (
+                    "allowed" if license_family(exact_license)
+                    in {"open-source", "public-domain"} else "unknown"
                 )
             ),
             classification_tags=sorted(tags),
         )
         candidate.review_status = "needs-verification"
+        candidate.title_match_confidence = title_confidence
+        candidate.itch_creator_username = creator_username
+        candidate.itch_creator_display_name = creator_display
+        candidate.itch_price_status = price_status
+        candidate.itch_min_price = min_price
+        candidate.itch_engine_tags = engines
+        candidate.itch_source_repository_url = source_repo
+        candidate.itch_downloadable_project_status = download_status
+        candidate.itch_downloadable_project_confidence = download_confidence
+        candidate.itch_downloadable_files = downloadable_files
+
+        enrichment = (
+            f"itch.io creator={creator_username or 'unknown'}; "
+            f"title_match_confidence={title_confidence if title_confidence is not None else 'n/a'}; "
+            f"price_status={price_status}; min_price={min_price or 'n/a'}; "
+            f"engines={','.join(engines) or 'none-detected'}; "
+            f"source_repository={source_repo or 'none'}; "
+            f"downloadable_project={download_status}/{download_confidence}; "
+            f"downloadable_files={','.join(downloadable_files[:10]) or 'none-visible'}"
+        )
+        candidate.notes = f"{candidate.notes} {enrichment}".strip()
 
         if listing_url:
             candidate.evidence.append(
@@ -1338,7 +1462,7 @@ class ItchioCollector:
                     accessed_at=utc_now(),
                     evidence_type="listing",
                     publisher_or_owner=creator,
-                    source_scope_claim="itchio-tag-listing",
+                    source_scope_claim="itchio-public-listing",
                     authorization_signal="platform-listing",
                     source_completeness_claim="",
                     provenance_class_claim=origin,
@@ -1352,6 +1476,41 @@ class ItchioCollector:
                 )
             )
 
+        candidate.evidence.append(
+            EvidenceRecord(
+                candidate_id=candidate.candidate_id,
+                evidence_source="itchio-page-enrichment",
+                evidence_url=url,
+                evidence_title=title,
+                accessed_at=utc_now(),
+                evidence_type="metadata-enrichment",
+                publisher_or_owner=creator,
+                source_scope_claim="itchio-public-game-page",
+                authorization_signal="seller-published",
+                source_completeness_claim=(
+                    f"complete-source-claim;downloadable-project={download_status}"
+                ),
+                provenance_class_claim=origin,
+                leak_status_claim=leak_status,
+                content_type_claim=";".join(content_types),
+                access_status_claim="public",
+                redistribution_status_claim=candidate.redistribution_status,
+                classification_tags=sorted({
+                    "itchio",
+                    "title-match-enrichment",
+                    "creator-enrichment",
+                    "price-enrichment",
+                    "engine-enrichment",
+                    "downloadable-project-enrichment",
+                }),
+                confidence=(
+                    "high" if download_confidence == "high" and title_confidence and title_confidence >= 0.9
+                    else "medium"
+                ),
+                notes=enrichment,
+            )
+        )
+
         for source_url, link_text in source_links:
             candidate.evidence.append(
                 EvidenceRecord(
@@ -1364,9 +1523,7 @@ class ItchioCollector:
                     publisher_or_owner=creator,
                     source_scope_claim="external-source-repository-link",
                     authorization_signal="seller-published-link",
-                    source_completeness_claim=(
-                        "complete-source-claim" if complete else ""
-                    ),
+                    source_completeness_claim="complete-source-claim" if complete else "",
                     provenance_class_claim=origin,
                     leak_status_claim=leak_status,
                     content_type_claim="source-code",
