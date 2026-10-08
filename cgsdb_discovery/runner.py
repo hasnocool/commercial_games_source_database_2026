@@ -94,9 +94,15 @@ async def run_discovery(
     wayback_domains: list[str] | None = None,
     developer_urls: list[str] | None = None,
     igdb_titles: list[str] | None = None,
+    steamdb_searches: list[str] | None = None,
+    steamdb_app_ids: list[str] | None = None,
     ia_pages: int = 5,
     ia_rows: int = 100,
+    ia_use_cursor: bool = True,
+    ia_cursor_batches: int = 10,
+    ia_cursor_count: int = 1000,
     github_pages: int = 3,
+    github_inspect_limit: int = 200,
     wayback_limit: int = 200,
     developer_max_pages: int = 50,
     developer_max_depth: int = 2,
@@ -113,6 +119,7 @@ async def run_discovery(
     configured_gh = config.get("github", {})
     configured_wb = config.get("wayback", {})
     configured_dev = config.get("developer_site", {})
+    configured_steam = config.get("steamdb", {})
     configured_igdb = config.get("igdb", {})
 
     selected = set(sources or [
@@ -128,6 +135,7 @@ async def run_discovery(
 
     all_candidates: list[CandidateRecord] = []
     errors: list[dict[str, str]] = []
+    collector_metadata: dict[str, object] = {}
 
     async with AsyncHttpClient(
         concurrency=concurrency,
@@ -141,6 +149,9 @@ async def run_discovery(
                     (internet_archive_queries or configured_ia.get("queries") or DEFAULT_IA_QUERIES),
                     pages=max(1, int(configured_ia.get("pages", ia_pages))),
                     rows=max(1, min(int(configured_ia.get("rows", ia_rows)), 10000)),
+                    use_cursor=bool(configured_ia.get("use_cursor", ia_use_cursor)),
+                    cursor_batches=max(1, int(configured_ia.get("cursor_batches", ia_cursor_batches))),
+                    cursor_count=max(100, min(int(configured_ia.get("cursor_count", ia_cursor_count)), 10000)),
                 )
             )
         if "github" in selected:
@@ -149,10 +160,20 @@ async def run_discovery(
                 gh.collect(
                     (github_queries or configured_gh.get("queries") or DEFAULT_GITHUB_QUERIES),
                     pages=max(1, int(configured_gh.get("pages", github_pages))),
+                    inspect_limit=max(0, int(configured_gh.get("inspect_limit", github_inspect_limit))),
                 )
             )
         if "steamdb" in selected:
-            tasks.append(SteamDBCollector(client).collect())
+            steam = SteamDBCollector(
+                client,
+                searches=steamdb_searches or configured_steam.get("searches"),
+                app_ids=steamdb_app_ids or configured_steam.get("app_ids"),
+            )
+            tasks.append(
+                steam.collect(
+                    max_apps=max(0, int(configured_steam.get("max_apps", 250))),
+                )
+            )
         if "wayback" in selected:
             wb = WaybackCollector(client)
             for domain in (wayback_domains or configured_wb.get("domains") or []):
@@ -176,6 +197,7 @@ async def run_discovery(
             else:
                 all_candidates.extend(result.candidates)
                 errors.extend(result.errors)
+                collector_metadata[result.collector] = result.metadata
 
         if "igdb" in selected and (igdb_titles or all_candidates):
             if igdb_client_id and igdb_client_secret:
@@ -214,7 +236,10 @@ async def run_discovery(
         ) else "completed-with-errors",
         candidates_found=len(merged),
         candidates_added=0,
-        notes=json.dumps({"errors": errors}, ensure_ascii=False),
+        notes=json.dumps(
+            {"collector_metadata": collector_metadata, "errors": errors},
+            ensure_ascii=False,
+        ),
     )
 
     if output is not None:
@@ -241,8 +266,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ia-query", action="append", dest="ia_queries")
     parser.add_argument("--ia-pages", type=int, default=5)
     parser.add_argument("--ia-rows", type=int, default=100)
+    parser.add_argument(
+        "--ia-no-cursor",
+        action="store_true",
+        help="use legacy Advanced Search pagination instead of the deep cursor scraper",
+    )
+    parser.add_argument("--ia-cursor-batches", type=int, default=10)
+    parser.add_argument("--ia-cursor-count", type=int, default=1000)
     parser.add_argument("--github-query", action="append", dest="github_queries")
     parser.add_argument("--github-pages", type=int, default=3)
+    parser.add_argument("--github-inspect-limit", type=int, default=200)
+    parser.add_argument("--steamdb-search", action="append", dest="steamdb_searches")
+    parser.add_argument("--steamdb-app", action="append", dest="steamdb_app_ids")
     parser.add_argument("--wayback-domain", action="append", dest="wayback_domains")
     parser.add_argument("--developer-url", action="append", dest="developer_urls")
     parser.add_argument("--igdb-title", action="append", dest="igdb_titles")
@@ -263,9 +298,15 @@ def main() -> None:
             wayback_domains=args.wayback_domains,
             developer_urls=args.developer_urls,
             igdb_titles=args.igdb_titles,
+            steamdb_searches=args.steamdb_searches,
+            steamdb_app_ids=args.steamdb_app_ids,
             ia_pages=max(1, args.ia_pages),
             ia_rows=max(1, min(args.ia_rows, 10000)),
+            ia_use_cursor=not args.ia_no_cursor,
+            ia_cursor_batches=max(1, args.ia_cursor_batches),
+            ia_cursor_count=max(100, min(args.ia_cursor_count, 10000)),
             github_pages=max(1, args.github_pages),
+            github_inspect_limit=max(0, args.github_inspect_limit),
             concurrency=max(1, min(args.concurrency, 32)),
             per_host_delay=max(0.0, args.per_host_delay),
             github_token=os.getenv("GITHUB_TOKEN", ""),
