@@ -76,6 +76,26 @@ urls = [
   # "https://www.example-game-studio.com/",
 ]
 
+[itchio]
+# Public itch.io listing pages. The authenticated itch.io server-side API is
+# intentionally not required. The collector scans public listing/game pages.
+tags = [
+  "sourcecode",
+  "source-code",
+  "game-source-code",
+  "open-source",
+  "opensource",
+]
+urls = [
+  # "https://itch.io/games/tag-open-source/tag-sourcecode",
+]
+game_urls = [
+  # "https://example.itch.io/example-game",
+]
+title_filters = []
+pages = 3
+inspect_limit = 300
+
 [igdb]
 # IGDB is enrichment/cross-checking, not source-license proof.
 titles = []
