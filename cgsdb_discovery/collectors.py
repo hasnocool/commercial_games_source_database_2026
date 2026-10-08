@@ -156,6 +156,33 @@ def candidate_from_text(
     redistribution_status: str = "unknown",
     classification_tags: list[str] | None = None,
 ) -> CandidateRecord:
+    inferred_origin, inferred_leak, inferred_tags = classify_provenance_text(
+        f"{query} {snippet}"
+    )
+    if provenance_class == "unknown":
+        provenance_class = inferred_origin
+    if leak_status == "not-leak" and inferred_leak != "not-leak":
+        leak_status = inferred_leak
+    if inferred_tags:
+        classification_tags = sorted(set((classification_tags or [])) | set(inferred_tags))
+    if not content_types:
+        content_blob = f"{snippet} {source_scope}".casefold()
+        inferred_types: list[str] = []
+        if "source" in content_blob or "code" in content_blob:
+            inferred_types.append("source-code")
+        if any(x in content_blob for x in ("binary", "build", "executable", "game files")):
+            inferred_types.append("binary")
+        if any(x in content_blob for x in ("assets", "artwork", "sound", "music")):
+            inferred_types.append("assets")
+        content_types = inferred_types or []
+    if access_status == "unknown" and source in {"github", "steamdb", "internet-archive", "developer-site", "wayback"}:
+        access_status = "public"
+    if redistribution_status == "unknown":
+        if license_family(license_hint or first_license(snippet)) in {"open-source", "public-domain"}:
+            redistribution_status = "allowed"
+        elif provenance_class == "leak":
+            redistribution_status = "forbidden"
+
     candidate = CandidateRecord(
         candidate_title=normalize_space(title),
         developer=normalize_space(developer),
@@ -604,6 +631,12 @@ class GitHubCollector:
                     publisher_or_owner=owner,
                     license_claim=readme_license,
                     source_scope_claim="repository-documentation",
+                    provenance_class_claim=candidate.provenance_class,
+                    leak_status_claim=candidate.leak_status,
+                    content_type_claim=";".join(candidate.content_types),
+                    access_status_claim=candidate.access_status,
+                    redistribution_status_claim=candidate.redistribution_status,
+                    classification_tags=candidate.classification_tags,
                     authorization_signal=(
                         "possible-authorized-release"
                         if any(
@@ -624,6 +657,14 @@ class GitHubCollector:
                     notes=readme_text[:5000],
                 )
             )
+        readme_origin, readme_leak, readme_tags = classify_provenance_text(readme_text)
+        if readme_origin != "unknown":
+            candidate.provenance_class = readme_origin
+        if readme_leak != "not-leak":
+            candidate.leak_status = readme_leak
+        candidate.classification_tags = sorted(
+            set(candidate.classification_tags) | set(readme_tags)
+        )
         return candidate
 
     async def search(self, query: str, *, pages: int = 3, per_page: int = 100) -> CollectorResult:
