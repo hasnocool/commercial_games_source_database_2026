@@ -29,7 +29,7 @@ DISCOVERY_CANDIDATES_PATH = DISCOVERY_DIR / "candidates.csv"
 DISCOVERY_EVIDENCE_PATH = DISCOVERY_DIR / "evidence.csv"
 DISCOVERY_RUNS_PATH = DISCOVERY_DIR / "runs.csv"
 DB_PATH = DATA_DIR / "games.db"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 GITHUB_RE = re.compile(r"https?://github\.com/([^/]+)/([^/#?]+)", re.IGNORECASE)
 NON_ALNUM = re.compile(r"[^a-z0-9]+")
@@ -416,7 +416,7 @@ DISCOVERY_CANDIDATE_COLUMNS = """
     license_family, source_completeness, authorization_status,
     provenance_class, leak_status, content_types, access_status,
     redistribution_status, classification_tags,
-    provenance_confidence, evidence_confidence, notes, updated_at
+    provenance_confidence, evidence_confidence, notes, source_metadata, updated_at
 """
 
 DISCOVERY_EVIDENCE_COLUMNS = """
