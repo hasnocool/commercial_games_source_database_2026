@@ -1479,6 +1479,7 @@ def parser() -> argparse.ArgumentParser:
         "discover",
         help="run high-recall web discovery collectors and write JSONL staging output",
     )
+    discover.add_argument("--csv", type=Path, default=CSV_PATH)
     discover.add_argument(
         "--sources",
         default="internet-archive,github,steamdb,itchio,wayback,developer-site,igdb",
@@ -1502,6 +1503,11 @@ def parser() -> argparse.ArgumentParser:
     discover.add_argument("--itch-url", action="append", dest="itch_urls")
     discover.add_argument("--itch-game-url", action="append", dest="itch_game_urls")
     discover.add_argument("--itch-title", action="append", dest="itch_titles")
+    discover.add_argument(
+        "--itch-canonical",
+        action="store_true",
+        help="also search itch.io for every title in the canonical games CSV",
+    )
     discover.add_argument("--itch-pages", type=int, default=3)
     discover.add_argument("--itch-inspect-limit", type=int, default=300)
     discover.add_argument("--wayback-domain", action="append", dest="wayback_domains")
@@ -1595,7 +1601,10 @@ def main() -> None:
                 itch_tags=args.itch_tags,
                 itch_urls=args.itch_urls,
                 itch_game_urls=args.itch_game_urls,
-                itch_titles=args.itch_titles,
+                itch_titles=(
+                    args.itch_titles
+                    or ([row["Game"] for row in read_csv(args.csv)] if args.itch_canonical else None)
+                ),
                 itch_pages=max(1, args.itch_pages),
                 itch_inspect_limit=max(0, args.itch_inspect_limit),
                 ia_pages=max(1, args.ia_pages),
