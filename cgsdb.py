@@ -687,8 +687,18 @@ def discovery_stats() -> dict:
         }
 
 
-def discovery_search(query: str = "", review_status: str | None = None,
-                     source: str | None = None, limit: int = 50) -> list[dict]:
+def discovery_search(
+    query: str = "",
+    review_status: str | None = None,
+    source: str | None = None,
+    provenance: str | None = None,
+    leak_status: str | None = None,
+    content_type: str | None = None,
+    access_status: str | None = None,
+    redistribution_status: str | None = None,
+    tag: str | None = None,
+    limit: int = 50,
+) -> list[dict]:
     ensure_database()
     clauses: list[str] = []
     params: list[object] = []
@@ -705,6 +715,24 @@ def discovery_search(query: str = "", review_status: str | None = None,
     if source:
         clauses.append("c.discovery_sources LIKE ?")
         params.append(f"%{source}%")
+    if provenance:
+        clauses.append("c.provenance_class = ?")
+        params.append(provenance)
+    if leak_status:
+        clauses.append("c.leak_status = ?")
+        params.append(leak_status)
+    if content_type:
+        clauses.append("(';' || c.content_types || ';') LIKE ?")
+        params.append(f"%;{content_type};%")
+    if access_status:
+        clauses.append("c.access_status = ?")
+        params.append(access_status)
+    if redistribution_status:
+        clauses.append("c.redistribution_status = ?")
+        params.append(redistribution_status)
+    if tag:
+        clauses.append("(';' || c.classification_tags || ';') LIKE ?")
+        params.append(f"%;{tag};%")
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"""
@@ -747,13 +775,17 @@ def export_discovery(candidates_output: Path, evidence_output: Path,
             "candidate_id","game_key","candidate_title","original_year","developer",
             "linked_game_status","discovery_sources","first_discovered_at","discovery_query",
             "discovery_url","review_status","exact_license","license_family","source_completeness",
-            "authorization_status","provenance_confidence","evidence_confidence","notes",
+            "authorization_status","provenance_class","leak_status","content_types","access_status",
+            "redistribution_status","classification_tags","provenance_confidence",
+            "evidence_confidence","notes",
         ], candidates),
         (evidence_output, [
             "evidence_id","candidate_id","evidence_source","evidence_url","evidence_title",
             "accessed_at","evidence_type","publisher_or_owner","source_release_date",
             "license_claim","source_scope_claim","authorization_signal",
-            "source_completeness_claim","confidence","notes",
+            "source_completeness_claim","provenance_class_claim","leak_status_claim",
+            "content_type_claim","access_status_claim","redistribution_status_claim",
+            "classification_tags","confidence","notes",
         ], evidence),
         (runs_output, [
             "run_id","started_at","completed_at","discovery_source","query_or_collection",
