@@ -85,6 +85,10 @@ CREATE INDEX IF NOT EXISTS idx_games_license ON games(license_family);
 CREATE INDEX IF NOT EXISTS idx_games_status ON games(source_status);
 CREATE INDEX IF NOT EXISTS idx_games_github ON games(github_owner, github_repo);
 CREATE INDEX IF NOT EXISTS idx_games_title ON games(game COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS idx_games_provenance ON games(provenance_class);
+CREATE INDEX IF NOT EXISTS idx_games_leak_status ON games(leak_status);
+CREATE INDEX IF NOT EXISTS idx_games_access_status ON games(access_status);
+CREATE INDEX IF NOT EXISTS idx_games_redistribution ON games(redistribution_status);
 CREATE TABLE IF NOT EXISTS discovery_candidates (
     candidate_id TEXT PRIMARY KEY,
     game_key TEXT,
@@ -117,6 +121,10 @@ CREATE INDEX IF NOT EXISTS idx_discovery_candidates_review ON discovery_candidat
 CREATE INDEX IF NOT EXISTS idx_discovery_candidates_source ON discovery_candidates(discovery_sources);
 CREATE INDEX IF NOT EXISTS idx_discovery_candidates_auth ON discovery_candidates(authorization_status);
 CREATE INDEX IF NOT EXISTS idx_discovery_candidates_completeness ON discovery_candidates(source_completeness);
+CREATE INDEX IF NOT EXISTS idx_discovery_candidates_provenance ON discovery_candidates(provenance_class);
+CREATE INDEX IF NOT EXISTS idx_discovery_candidates_leak ON discovery_candidates(leak_status);
+CREATE INDEX IF NOT EXISTS idx_discovery_candidates_access ON discovery_candidates(access_status);
+CREATE INDEX IF NOT EXISTS idx_discovery_candidates_redistribution ON discovery_candidates(redistribution_status);
 CREATE INDEX IF NOT EXISTS idx_discovery_candidates_title ON discovery_candidates(candidate_title COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS discovery_evidence (
