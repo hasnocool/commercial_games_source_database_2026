@@ -146,11 +146,11 @@ def classify_itch_price(text: str) -> tuple[str, str]:
         return "free", "0"
     if "pay what you want" in haystack or "pay any amount" in haystack:
         return "pay-what-you-want", "0"
-    price = re.search(r"(?:minimum price|price|pay)\\s*[:\\-]?\\s*(\\$\\s?\\d+(?:[.,]\\d{2})?)", haystack)
+    price = re.search(r"(?:minimum price|price|pay)\s*[:\-]?\s*(\$\s?\d+(?:[.,]\d{2})?)", haystack)
     if price:
         return "paid", normalize_space(price.group(1))
-    if re.search(r"\\$\\d+(?:[.,]\\d{2})?", haystack):
-        return "paid", normalize_space(re.search(r"\\$\\d+(?:[.,]\\d{2})?", haystack).group(0))
+    if re.search(r"\$\d+(?:[.,]\d{2})?", haystack):
+        return "paid", normalize_space(re.search(r"\$\d+(?:[.,]\d{2})?", haystack).group(0))
     return "unknown", ""
 
 def inspect_itch_downloads(url: str, body: str) -> tuple[str, str, list[str]]:
