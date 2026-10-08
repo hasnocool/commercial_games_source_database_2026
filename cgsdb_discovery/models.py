@@ -106,6 +106,12 @@ class EvidenceRecord:
             self.source_scope_claim,
             self.authorization_signal,
             self.source_completeness_claim,
+            self.provenance_class_claim,
+            self.leak_status_claim,
+            self.content_type_claim,
+            self.access_status_claim,
+            self.redistribution_status_claim,
+            ";".join(sorted(set(self.classification_tags))),
         ).removeprefix("fp-")
 
 
