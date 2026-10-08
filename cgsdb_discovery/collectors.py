@@ -35,6 +35,13 @@ SOURCE_KEYWORDS = (
     "apache license",
     "public domain",
     "cc0",
+    "source code leak",
+    "leaked source",
+    "leaked game",
+    "game leak",
+    "stolen source",
+    "unauthorized source",
+    "unreleased source",
 )
 
 LICENSE_RE = re.compile(
