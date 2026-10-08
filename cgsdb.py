@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS discovery_candidates (
     provenance_confidence TEXT,
     evidence_confidence TEXT,
     notes TEXT,
+    source_metadata TEXT NOT NULL DEFAULT '{}',
     updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_discovery_candidates_game_key ON discovery_candidates(game_key);
@@ -287,6 +288,7 @@ def init_db() -> None:
             "access_status": "TEXT NOT NULL DEFAULT 'unknown'",
             "redistribution_status": "TEXT NOT NULL DEFAULT 'unknown'",
             "classification_tags": "TEXT NOT NULL DEFAULT ''",
+            "source_metadata": "TEXT NOT NULL DEFAULT '{}'",
         })
         _ensure_columns(conn, "discovery_candidates", {
             "provenance_class": "TEXT NOT NULL DEFAULT 'unknown'",
@@ -903,8 +905,8 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                     license_family, source_completeness, authorization_status,
                     provenance_class, leak_status, content_types, access_status,
                     redistribution_status, classification_tags,
-                    provenance_confidence, evidence_confidence, notes, updated_at
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    provenance_confidence, evidence_confidence, notes, source_metadata, updated_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(candidate_id) DO UPDATE SET
                     game_key=excluded.game_key,
                     candidate_title=excluded.candidate_title,
@@ -929,6 +931,7 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                     provenance_confidence=excluded.provenance_confidence,
                     evidence_confidence=excluded.evidence_confidence,
                     notes=excluded.notes,
+                    source_metadata=excluded.source_metadata,
                     updated_at=excluded.updated_at
                 """,
                 (
@@ -956,6 +959,18 @@ def import_discovery_jsonl(path: Path) -> dict[str, int]:
                     payload.get("provenance_confidence", "low"),
                     payload.get("evidence_confidence", "low"),
                     payload.get("notes", ""),
+                    json.dumps({
+                        "title_match_confidence": payload.get("title_match_confidence"),
+                        "itch_creator_username": payload.get("itch_creator_username", ""),
+                        "itch_creator_display_name": payload.get("itch_creator_display_name", ""),
+                        "itch_price_status": payload.get("itch_price_status", "unknown"),
+                        "itch_min_price": payload.get("itch_min_price", ""),
+                        "itch_engine_tags": payload.get("itch_engine_tags") or [],
+                        "itch_source_repository_url": payload.get("itch_source_repository_url", ""),
+                        "itch_downloadable_project_status": payload.get("itch_downloadable_project_status", "unknown"),
+                        "itch_downloadable_project_confidence": payload.get("itch_downloadable_project_confidence", "low"),
+                        "itch_downloadable_files": payload.get("itch_downloadable_files") or [],
+                    }, ensure_ascii=False, separators=(",", ":")),
                     utc_now(),
                 ),
             )
