@@ -18,7 +18,7 @@ class AsyncHttpClient:
         *,
         concurrency: int = 8,
         timeout_seconds: float = 20.0,
-        user_agent: str = "commercial-games-source-database-2026-discovery/0.3",
+        user_agent: str = "commercial-games-source-database-2026-discovery/0.4",
         per_host_delay: float = 0.35,
         max_retries: int = 3,
     ) -> None:
