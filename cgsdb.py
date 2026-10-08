@@ -254,9 +254,40 @@ def connect() -> sqlite3.Connection:
     return conn
 
 
+def _ensure_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    for name, definition in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(CREATE_SQL)
+        _ensure_columns(conn, "games", {
+            "provenance_class": "TEXT NOT NULL DEFAULT 'unknown'",
+            "leak_status": "TEXT NOT NULL DEFAULT 'not-leak'",
+            "content_types": "TEXT NOT NULL DEFAULT ''",
+            "access_status": "TEXT NOT NULL DEFAULT 'unknown'",
+            "redistribution_status": "TEXT NOT NULL DEFAULT 'unknown'",
+            "classification_tags": "TEXT NOT NULL DEFAULT ''",
+        })
+        _ensure_columns(conn, "discovery_candidates", {
+            "provenance_class": "TEXT NOT NULL DEFAULT 'unknown'",
+            "leak_status": "TEXT NOT NULL DEFAULT 'not-leak'",
+            "content_types": "TEXT NOT NULL DEFAULT ''",
+            "access_status": "TEXT NOT NULL DEFAULT 'unknown'",
+            "redistribution_status": "TEXT NOT NULL DEFAULT 'unknown'",
+            "classification_tags": "TEXT NOT NULL DEFAULT ''",
+        })
+        _ensure_columns(conn, "discovery_evidence", {
+            "provenance_class_claim": "TEXT",
+            "leak_status_claim": "TEXT",
+            "content_type_claim": "TEXT",
+            "access_status_claim": "TEXT",
+            "redistribution_status_claim": "TEXT",
+            "classification_tags": "TEXT",
+        })
         conn.execute(
             "INSERT INTO metadata(key,value) VALUES('schema_version',?) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
