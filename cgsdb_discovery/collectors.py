@@ -751,6 +751,22 @@ class SteamDBCollector:
             status, _, body = await self.client.request("GET", url)
             if status != 200:
                 return CollectorResult(self.name, [], [{"url": url, "error": f"HTTP {status}"}])
+            meta = MetaParser()
+            meta.feed(body)
+            resolved_title = app_title or meta.title or f"Steam app {app_id}"
+            resolved_title = re.sub(
+                r"\s*[·|-]\s*SteamDB.*$",
+                "",
+                resolved_title,
+                flags=re.IGNORECASE,
+            ).strip()
+            resolved_title = re.sub(
+                r"\s+Packages?$",
+                "",
+                resolved_title,
+                flags=re.IGNORECASE,
+            ).strip() or f"Steam app {app_id}"
+
             parser = LinkTextParser()
             parser.feed(body)
             packages: dict[str, str] = {}
@@ -772,7 +788,7 @@ class SteamDBCollector:
             }
             results = await asyncio.gather(
                 *(
-                    self.inspect_package(app_id, sub_id, name, app_title=app_title)
+                    self.inspect_package(app_id, sub_id, name, app_title=resolved_title)
                     for sub_id, name in source_packages.items()
                 ),
                 return_exceptions=True,
