@@ -94,6 +94,11 @@ def classify_provenance_text(text: str) -> tuple[str, str, list[str]]:
         "unauthorized source",
         "unreleased source",
         "internal source",
+        "game build leak",
+        "beta leak",
+        "prototype leak",
+        "internal build",
+        "unreleased build",
     )
     reverse_phrases = ("reverse engineered", "reverse-engineered", "clean-room reimplementation")
     recovery_phrases = ("source recovered", "recovered source", "archival recovery", "preservation archive")
@@ -181,6 +186,16 @@ def candidate_from_text(
             inferred_types.append("source-code")
         if any(x in content_blob for x in ("binary", "build", "executable", "game files")):
             inferred_types.append("binary")
+        if any(x in content_blob for x in ("full game", "complete game", "retail game", "game dump")):
+            inferred_types.append("full-game")
+        if any(x in content_blob for x in ("beta", "prototype", "alpha", "internal build")):
+            inferred_types.append("prototype-or-beta")
+        if any(x in content_blob for x in ("sdk", "development kit")):
+            inferred_types.append("sdk")
+        if any(x in content_blob for x in ("server", "dedicated server", "backend")):
+            inferred_types.append("server")
+        if any(x in content_blob for x in ("documentation", "docs", "manual")):
+            inferred_types.append("documentation")
         if any(x in content_blob for x in ("assets", "artwork", "sound", "music")):
             inferred_types.append("assets")
         content_types = inferred_types or []
