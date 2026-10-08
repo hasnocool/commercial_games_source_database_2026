@@ -29,6 +29,17 @@ queries = [
   '"released source" game',
   '"commercial game" source code',
   '"source release" game',
+  '"leaked game source"',
+  '"game source leak"',
+  '"source code leak"',
+  '"stolen source" game',
+  '"unauthorized source" game',
+  '"unreleased game source"',
+  '"game build leak"',
+  '"beta leak" game',
+  '"prototype leak" game',
+  '"internal build" game',
+  '"unreleased build" game',
 ]
 pages = 3
 # Inspect up to this many unique repositories after search.
