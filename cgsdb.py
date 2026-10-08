@@ -1236,8 +1236,18 @@ def parser() -> argparse.ArgumentParser:
     discover.add_argument("--ia-query", action="append", dest="ia_queries")
     discover.add_argument("--ia-pages", type=int, default=5)
     discover.add_argument("--ia-rows", type=int, default=100)
+    discover.add_argument(
+        "--ia-no-cursor",
+        action="store_true",
+        help="use legacy Advanced Search pagination instead of the deep cursor scraper",
+    )
+    discover.add_argument("--ia-cursor-batches", type=int, default=10)
+    discover.add_argument("--ia-cursor-count", type=int, default=1000)
     discover.add_argument("--github-query", action="append", dest="github_queries")
     discover.add_argument("--github-pages", type=int, default=3)
+    discover.add_argument("--github-inspect-limit", type=int, default=200)
+    discover.add_argument("--steamdb-search", action="append", dest="steamdb_searches")
+    discover.add_argument("--steamdb-app", action="append", dest="steamdb_app_ids")
     discover.add_argument("--wayback-domain", action="append", dest="wayback_domains")
     discover.add_argument("--developer-url", action="append", dest="developer_urls")
     discover.add_argument("--igdb-title", action="append", dest="igdb_titles")
@@ -1316,9 +1326,15 @@ def main() -> None:
                 wayback_domains=args.wayback_domains,
                 developer_urls=args.developer_urls,
                 igdb_titles=args.igdb_titles,
+                steamdb_searches=args.steamdb_searches,
+                steamdb_app_ids=args.steamdb_app_ids,
                 ia_pages=max(1, args.ia_pages),
                 ia_rows=max(1, min(args.ia_rows, 10000)),
+                ia_use_cursor=not args.ia_no_cursor,
+                ia_cursor_batches=max(1, args.ia_cursor_batches),
+                ia_cursor_count=max(100, min(args.ia_cursor_count, 10000)),
                 github_pages=max(1, args.github_pages),
+                github_inspect_limit=max(0, args.github_inspect_limit),
                 concurrency=max(1, min(args.concurrency, 32)),
                 per_host_delay=max(0.0, args.per_host_delay),
                 github_token=os.getenv("GITHUB_TOKEN", ""),

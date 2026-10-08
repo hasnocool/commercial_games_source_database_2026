@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import unittest
 
 from cgsdb_discovery.collectors import first_license, normalize_space
@@ -77,6 +78,101 @@ class CollectorModelTests(unittest.TestCase):
         self.assertEqual(len(merged), 1)
         self.assertEqual(merged[0].discovery_sources, ["github", "internet-archive"])
         self.assertEqual(len(merged[0].evidence), 1)
+
+
+class FakeHttpClient:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    async def request(self, method, url, **kwargs):
+        self.calls.append((method, url, kwargs))
+        if not self.responses:
+            raise AssertionError(f"unexpected request: {method} {url}")
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+
+class DeepCollectorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_internet_archive_cursor_paginates(self) -> None:
+        from cgsdb_discovery.collectors import InternetArchiveCollector
+
+        client = FakeHttpClient([
+            (
+                200,
+                {},
+                '{"items":[{"identifier":"game-one","title":"Game One","description":"released source code","creator":"Dev","year":"2001"}],"total":2,"cursor":"NEXT"}',
+            ),
+            (
+                200,
+                {},
+                '{"items":[{"identifier":"game-two","title":"Game Two","description":"open source game","creator":"Dev2","year":"2002"}],"total":1}',
+            ),
+        ])
+        result = await InternetArchiveCollector(client).scrape_query(
+            "collection:gamesourcecode",
+            batches=5,
+            count=100,
+        )
+        self.assertEqual([c.candidate_title for c in result.candidates], ["Game One", "Game Two"])
+        self.assertEqual(len(client.calls), 2)
+        self.assertEqual(result.metadata["pages_seen"], 2)
+
+    async def test_github_inspects_license_and_readme(self) -> None:
+        from cgsdb_discovery.collectors import GitHubCollector
+
+        license_body = base64.b64encode(b"MIT License").decode()
+        client = FakeHttpClient([
+            (
+                200,
+                {},
+                '{"items":[{"name":"example-game","description":"old commercial game source","html_url":"https://github.com/example/example-game","owner":{"login":"example"},"license":null,"topics":[]}]}',
+            ),
+            (200, {}, '{"license":{"spdx_id":"MIT"},"html_url":"https://github.com/example/example-game/blob/main/LICENSE","content":"' + license_body + '"}'),
+            (200, {}, "# Example Game\n\nOfficial source release for the commercial game."),
+        ])
+        result = await GitHubCollector(client, token="token").collect(
+            ['"commercial game" source code'],
+            pages=1,
+            inspect_limit=10,
+        )
+        self.assertEqual(len(result.candidates), 1)
+        candidate = result.candidates[0]
+        self.assertEqual(candidate.exact_license, "MIT")
+        self.assertEqual(candidate.license_family, "open-source")
+        self.assertTrue(any(ev.evidence_source == "github-license" for ev in candidate.evidence))
+        self.assertTrue(any(ev.evidence_source == "github-readme" for ev in candidate.evidence))
+        self.assertTrue(any("possible-authorized-release" == ev.authorization_signal for ev in candidate.evidence))
+
+    async def test_steamdb_enumerates_source_package(self) -> None:
+        from cgsdb_discovery.collectors import SteamDBCollector
+
+        subs_html = """
+        <html><body>
+          <a href="/sub/12345/">Game source code</a>
+          <a href="/sub/54321/">Standard Game Package</a>
+        </body></html>
+        """
+        package_html = """
+        <html><head><title>Game source code · SteamDB</title></head>
+        <body>The complete source code for the game is licensed under GPLv3.</body></html>
+        """
+        client = FakeHttpClient([
+            (200, {}, subs_html),
+            (200, {}, package_html),
+        ])
+        result = await SteamDBCollector(client).enumerate_app_packages(
+            "999",
+            app_title="Example Commercial Game",
+        )
+        self.assertEqual(len(result.candidates), 1)
+        candidate = result.candidates[0]
+        self.assertEqual(candidate.candidate_title, "Example Commercial Game")
+        self.assertEqual(candidate.exact_license, "GPLv3")
+        self.assertEqual(candidate.source_completeness, "complete-source-claim")
+        self.assertTrue(any(ev.evidence_source == "steamdb-package" for ev in candidate.evidence))
 
 
 if __name__ == "__main__":

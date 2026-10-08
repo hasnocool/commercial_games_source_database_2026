@@ -57,7 +57,7 @@ The catalog now contains **227 records**. This is deliberately a high-recall pre
 
 ### High-recall discovery collectors
 
-The repository now includes asynchronous discovery collectors for **Internet Archive, GitHub, SteamDB, Wayback, developer/rightsholder sites, and IGDB**.
+The repository now includes asynchronous discovery collectors for **Internet Archive, GitHub, SteamDB, Wayback, developer/rightsholder sites, and IGDB**. The deep-discovery path now uses the Internet Archive cursor scraper, enumerates SteamDB source-like packages attached to discovered apps, and automatically inspects GitHub LICENSE and README content for stronger provenance signals.
 
 Install the optional collector dependency:
 
@@ -74,9 +74,10 @@ python cgsdb.py discover
 Target individual sources:
 
 ```bash
-python cgsdb.py discover --sources internet-archive --ia-pages 20
-GITHUB_TOKEN=... python cgsdb.py discover --sources github --github-pages 10
+python cgsdb.py discover --sources internet-archive --ia-cursor-batches 25 --ia-cursor-count 1000
+GITHUB_TOKEN=... python cgsdb.py discover --sources github --github-pages 10 --github-inspect-limit 300
 python cgsdb.py discover --sources steamdb
+python cgsdb.py discover --sources steamdb --steamdb-app 488190
 python cgsdb.py discover --sources wayback --wayback-domain https://example.com
 python cgsdb.py discover --sources developer-site --developer-url https://example.com/
 IGDB_CLIENT_ID=... IGDB_CLIENT_SECRET=... python cgsdb.py discover --sources igdb --igdb-title "Star Ruler 2"

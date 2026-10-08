@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from collections import deque
-from dataclasses import dataclass
+import base64
+from collections import OrderedDict, deque
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 import json
@@ -43,8 +44,20 @@ LICENSE_RE = re.compile(
     re.IGNORECASE,
 )
 GITHUB_RE = re.compile(r"https?://github\.com/([^/\s#?]+)/([^/\s#?]+)", re.IGNORECASE)
-STEAM_APP_RE = re.compile(r"https?://steamdb\.info/app/(\d+)", re.IGNORECASE)
-STEAM_SUB_RE = re.compile(r"https?://steamdb\.info/sub/(\d+)", re.IGNORECASE)
+STEAM_APP_RE = re.compile(r"(?:https?://steamdb\.info)?/app/(\d+)", re.IGNORECASE)
+STEAM_SUB_RE = re.compile(r"(?:https?://steamdb\.info)?/sub/(\d+)", re.IGNORECASE)
+STEAM_PACKAGE_KEYWORDS = (
+    "source code",
+    "source_code",
+    "source",
+    "code",
+    "gpl",
+    "lgpl",
+    "mit",
+    "open source",
+    "opensource",
+    "public domain",
+)
 
 
 def utc_now() -> str:
@@ -184,6 +197,7 @@ class CollectorResult:
     collector: str
     candidates: list[CandidateRecord]
     errors: list[dict[str, str]]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class InternetArchiveCollector:
@@ -191,6 +205,105 @@ class InternetArchiveCollector:
 
     def __init__(self, client: AsyncHttpClient) -> None:
         self.client = client
+
+    async def scrape_query(
+        self,
+        query: str,
+        *,
+        batches: int = 10,
+        count: int = 1000,
+        cursor: str = "",
+    ) -> CollectorResult:
+        """Deep-page the Internet Archive scrape API using its continuation cursor."""
+        candidates: list[CandidateRecord] = []
+        errors: list[dict[str, str]] = []
+        cursor_value = cursor
+        pages_seen = 0
+        total_at_first: int | None = None
+        resume_cursor = cursor_value
+        fields = ",".join(
+            [
+                "identifier",
+                "title",
+                "creator",
+                "date",
+                "year",
+                "description",
+                "licenseurl",
+                "collection",
+                "mediatype",
+            ]
+        )
+        for _ in range(max(1, batches)):
+            params: list[tuple[str, str | int]] = [
+                ("q", query),
+                ("fields", fields),
+                ("count", max(100, min(count, 10000))),
+            ]
+            if cursor_value:
+                params.append(("cursor", cursor_value))
+            try:
+                status, _, body = await self.client.request(
+                    "GET",
+                    "https://archive.org/services/search/v1/scrape",
+                    params=params,
+                )
+                if status != 200:
+                    errors.append({"query": query, "error": f"HTTP {status}", "mode": "cursor"})
+                    break
+                payload = json.loads(body)
+                items = payload.get("items", [])
+                if total_at_first is None:
+                    total_at_first = payload.get("total")
+                for doc in items:
+                    title = normalize_space(doc.get("title") or doc.get("identifier") or "")
+                    description = normalize_space(doc.get("description") or "")
+                    license_url = normalize_space(doc.get("licenseurl") or "")
+                    collections = doc.get("collection") or []
+                    if isinstance(collections, str):
+                        collections = [collections]
+                    haystack = " ".join([title, description, license_url, *collections]).casefold()
+                    if not any(keyword in haystack for keyword in SOURCE_KEYWORDS):
+                        continue
+                    identifier = doc.get("identifier") or title
+                    url = f"https://archive.org/details/{identifier}"
+                    candidates.append(
+                        candidate_from_text(
+                            title=title,
+                            developer=normalize_space(doc.get("creator") or ""),
+                            source=self.name,
+                            url=url,
+                            query=query,
+                            snippet=(
+                                description
+                                + (f" license_url={license_url}" if license_url else "")
+                                + (f" collections={';'.join(collections)}" if collections else "")
+                            ),
+                            release_date=normalize_space(doc.get("date") or doc.get("year") or ""),
+                            source_scope="archive-item",
+                        )
+                    )
+                pages_seen += 1
+                next_cursor = payload.get("cursor") or ""
+                resume_cursor = next_cursor
+                if not items or not next_cursor or next_cursor == cursor_value:
+                    break
+                cursor_value = next_cursor
+            except (json.JSONDecodeError, asyncio.TimeoutError) as exc:
+                errors.append({"query": query, "error": str(exc), "mode": "cursor"})
+                break
+        return CollectorResult(
+            self.name,
+            candidates,
+            errors,
+            metadata={
+                "mode": "cursor",
+                "query": query,
+                "pages_seen": pages_seen,
+                "total_at_start": total_at_first,
+                "resume_cursor": resume_cursor,
+            },
+        )
 
     async def search_query(self, query: str, *, pages: int = 5, rows: int = 100) -> CollectorResult:
         candidates: list[CandidateRecord] = []
@@ -260,20 +373,52 @@ class InternetArchiveCollector:
                 break
         return CollectorResult(self.name, candidates, errors)
 
-    async def collect(self, queries: list[str], *, pages: int = 5, rows: int = 100) -> CollectorResult:
-        results = await asyncio.gather(
-            *(self.search_query(query, pages=pages, rows=rows) for query in queries),
-            return_exceptions=True,
-        )
+    async def collect(
+        self,
+        queries: list[str],
+        *,
+        pages: int = 5,
+        rows: int = 100,
+        use_cursor: bool = True,
+        cursor_batches: int = 10,
+        cursor_count: int = 1000,
+    ) -> CollectorResult:
+        if use_cursor:
+            results = await asyncio.gather(
+                *(
+                    self.scrape_query(
+                        query,
+                        batches=cursor_batches,
+                        count=cursor_count,
+                    )
+                    for query in queries
+                ),
+                return_exceptions=True,
+            )
+        else:
+            results = await asyncio.gather(
+                *(self.search_query(query, pages=pages, rows=rows) for query in queries),
+                return_exceptions=True,
+            )
         candidates: list[CandidateRecord] = []
         errors: list[dict[str, str]] = []
+        metadata: dict[str, Any] = {
+            "mode": "cursor" if use_cursor else "advanced-search",
+            "queries": [],
+        }
         for result in results:
             if isinstance(result, Exception):
                 errors.append({"query": "batch", "error": str(result)})
             else:
                 candidates.extend(result.candidates)
                 errors.extend(result.errors)
-        return CollectorResult(self.name, candidates, errors)
+                metadata["queries"].append(result.metadata)
+        return CollectorResult(
+            self.name,
+            candidates,
+            errors,
+            metadata=metadata,
+        )
 
 
 class GitHubCollector:
@@ -283,21 +428,148 @@ class GitHubCollector:
         self.client = client
         self.token = token
 
-    async def search(self, query: str, *, pages: int = 3, per_page: int = 100) -> CollectorResult:
-        candidates: list[CandidateRecord] = []
-        errors: list[dict[str, str]] = []
+    @property
+    def headers(self) -> dict[str, str]:
         headers = {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2026-03-10",
         }
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
+        return headers
+
+    def _repo_from_url(self, url: str) -> tuple[str, str] | None:
+        match = GITHUB_RE.search(url or "")
+        if not match:
+            return None
+        return match.group(1), match.group(2).rstrip("/")
+
+    async def inspect_repository(self, candidate: CandidateRecord, owner: str, repo: str) -> CandidateRecord:
+        """Inspect GitHub's machine-readable license endpoint and README."""
+        base = f"https://api.github.com/repos/{owner}/{repo}"
+        license_url = f"{base}/license"
+        readme_url = f"{base}/readme"
+        license_result, readme_result = await asyncio.gather(
+            self.client.request(
+                "GET",
+                license_url,
+                headers=self.headers | {"Accept": "application/vnd.github+json"},
+            ),
+            self.client.request(
+                "GET",
+                readme_url,
+                headers=self.headers | {"Accept": "application/vnd.github.raw+json"},
+            ),
+            return_exceptions=True,
+        )
+
+        license_name = ""
+        license_html_url = license_url
+        license_text = ""
+        readme_text = ""
+        license_status = ""
+        readme_status = ""
+
+        if not isinstance(license_result, Exception):
+            status, _, body = license_result
+            license_status = str(status)
+            if status == 200:
+                try:
+                    payload = json.loads(body)
+                    license_name = normalize_space((payload.get("license") or {}).get("spdx_id") or "")
+                    license_html_url = normalize_space(payload.get("html_url") or license_url)
+                    encoded = payload.get("content") or ""
+                    if encoded:
+                        license_text = base64.b64decode(
+                            encoded.replace("\n", "")
+                        ).decode("utf-8", errors="replace")
+                except (json.JSONDecodeError, ValueError, UnicodeError):
+                    license_text = body
+
+        if not isinstance(readme_result, Exception):
+            status, _, body = readme_result
+            readme_status = str(status)
+            if status == 200:
+                readme_text = normalize_space(body)
+
+        readme_signals = [k for k in SOURCE_KEYWORDS if k in readme_text.casefold()]
+        readme_license = first_license(readme_text)
+        exact_license = license_name or readme_license or first_license(license_text)
+        if exact_license:
+            candidate.exact_license = exact_license
+            candidate.license_family = license_family(exact_license)
+
+        note_bits = [
+            f"github_license={license_name or 'none'}",
+            f"license_http={license_status or 'error'}",
+            f"readme_http={readme_status or 'error'}",
+        ]
+        if readme_signals:
+            note_bits.append("readme_signals=" + ",".join(readme_signals[:20]))
+        if readme_license and readme_license != license_name:
+            note_bits.append(f"readme_license={readme_license}")
+        candidate.notes = normalize_space(candidate.notes + " " + " ".join(note_bits))[:2000]
+
+        license_claim = license_name or first_license(license_text)
+        if license_claim:
+            candidate.evidence.append(
+                EvidenceRecord(
+                    candidate_id=candidate.candidate_id,
+                    evidence_source="github-license",
+                    evidence_url=license_html_url,
+                    evidence_title=f"{owner}/{repo} LICENSE",
+                    accessed_at=utc_now(),
+                    evidence_type="license",
+                    publisher_or_owner=owner,
+                    license_claim=license_claim,
+                    source_scope_claim="repository-license",
+                    confidence="high",
+                    notes=normalize_space(license_text)[:3000],
+                )
+            )
+        if readme_text:
+            candidate.evidence.append(
+                EvidenceRecord(
+                    candidate_id=candidate.candidate_id,
+                    evidence_source="github-readme",
+                    evidence_url=readme_url,
+                    evidence_title=f"{owner}/{repo} README",
+                    accessed_at=utc_now(),
+                    evidence_type="readme",
+                    publisher_or_owner=owner,
+                    license_claim=readme_license,
+                    source_scope_claim="repository-documentation",
+                    authorization_signal=(
+                        "possible-authorized-release"
+                        if any(
+                            phrase in readme_text.casefold()
+                            for phrase in (
+                                "released by",
+                                "official source",
+                                "official repository",
+                                "source release",
+                                "open sourced",
+                                "open-source release",
+                                "released the source",
+                            )
+                        )
+                        else ""
+                    ),
+                    confidence="medium",
+                    notes=readme_text[:5000],
+                )
+            )
+        return candidate
+
+    async def search(self, query: str, *, pages: int = 3, per_page: int = 100) -> CollectorResult:
+        candidates: list[CandidateRecord] = []
+        errors: list[dict[str, str]] = []
         for page in range(1, pages + 1):
             try:
                 status, _, body = await self.client.request(
                     "GET",
                     "https://api.github.com/search/repositories",
-                    headers=headers,
+                    headers=self.headers,
                     params={"q": query, "per_page": per_page, "page": page},
                 )
                 if status != 200:
@@ -313,8 +585,12 @@ class GitHubCollector:
                     name = normalize_space(item.get("name") or "")
                     description = normalize_space(item.get("description") or "")
                     repo_url = item.get("html_url") or ""
-                    haystack = " ".join([name, description, " ".join(item.get("topics") or [])]).lower()
-                    if not any(keyword in haystack for keyword in ("source", "game", "gpl", "mit", "open")):
+                    topics = item.get("topics") or []
+                    haystack = " ".join([query, name, description, " ".join(topics)]).casefold()
+                    if not any(
+                        keyword in haystack
+                        for keyword in ("game", "source", "gpl", "mit", "opensource", "released")
+                    ):
                         continue
                     license_name = normalize_space((item.get("license") or {}).get("spdx_id") or "")
                     owner = normalize_space((item.get("owner") or {}).get("login") or "")
@@ -327,7 +603,6 @@ class GitHubCollector:
                         snippet=description or name,
                         license_hint=license_name,
                         source_scope="repository",
-                        authorization="unknown",
                     )
                     candidates.append(candidate)
             except (json.JSONDecodeError, asyncio.TimeoutError) as exc:
@@ -335,7 +610,13 @@ class GitHubCollector:
                 break
         return CollectorResult(self.name, candidates, errors)
 
-    async def collect(self, queries: list[str], *, pages: int = 3) -> CollectorResult:
+    async def collect(
+        self,
+        queries: list[str],
+        *,
+        pages: int = 3,
+        inspect_limit: int = 200,
+    ) -> CollectorResult:
         results = await asyncio.gather(
             *(self.search(query, pages=pages) for query in queries),
             return_exceptions=True,
@@ -348,33 +629,190 @@ class GitHubCollector:
             else:
                 candidates.extend(result.candidates)
                 errors.extend(result.errors)
-        return CollectorResult(self.name, candidates, errors)
+
+        unique: OrderedDict[str, CandidateRecord] = OrderedDict()
+        for candidate in candidates:
+            unique.setdefault(candidate.discovery_url.casefold().rstrip("/"), candidate)
+        inspection_targets = list(unique.values())[: max(0, inspect_limit)]
+
+        async def inspect(candidate: CandidateRecord) -> CandidateRecord:
+            repo = self._repo_from_url(candidate.discovery_url)
+            if not repo:
+                return candidate
+            try:
+                return await self.inspect_repository(candidate, *repo)
+            except Exception as exc:
+                errors.append({
+                    "query": candidate.discovery_url,
+                    "error": f"inspection: {exc}",
+                })
+                return candidate
+
+        inspected = await asyncio.gather(*(inspect(c) for c in inspection_targets))
+        by_url = {c.discovery_url.casefold().rstrip("/"): c for c in inspected}
+        for idx, candidate in enumerate(candidates):
+            replacement = by_url.get(candidate.discovery_url.casefold().rstrip("/"))
+            if replacement is not None:
+                candidates[idx] = replacement
+
+        return CollectorResult(
+            self.name,
+            candidates,
+            errors,
+            metadata={
+                "search_candidate_count": len(unique),
+                "inspection_limit": inspect_limit,
+                "inspected_repositories": len(inspected),
+                "authenticated": bool(self.token),
+            },
+        )
 
 
 class SteamDBCollector:
     name = "steamdb"
 
-    SEARCH_URLS = (
-        "https://steamdb.info/search/?a=app&q=source+code",
-        "https://steamdb.info/search/?a=app&q=source_code",
-        "https://steamdb.info/search/?a=app&q=open+source",
-        "https://steamdb.info/search/?a=app&q=GPL",
-        "https://steamdb.info/search/?a=app&q=MIT",
-    )
-
     def __init__(
         self,
         client: AsyncHttpClient,
         searches: list[str] | None = None,
+        app_ids: list[str] | None = None,
     ) -> None:
         self.client = client
-        self.searches = searches or [
-            "source code",
-            "source_code",
-            "open source",
-            "GPL",
-            "MIT",
-        ]
+        self.searches = searches or ["source code", "source_code", "open source", "GPL", "MIT"]
+        self.app_ids = [str(x) for x in (app_ids or [])]
+
+    @staticmethod
+    def _package_is_interesting(name: str, snippet: str = "") -> bool:
+        haystack = f"{name} {snippet}".casefold()
+        return any(keyword in haystack for keyword in STEAM_PACKAGE_KEYWORDS)
+
+    async def inspect_package(
+        self,
+        app_id: str,
+        sub_id: str,
+        package_name: str,
+        *,
+        app_title: str = "",
+    ) -> CollectorResult:
+        url = f"https://steamdb.info/sub/{sub_id}/"
+        try:
+            status, _, body = await self.client.request("GET", url)
+            if status != 200:
+                return CollectorResult(self.name, [], [{"url": url, "error": f"HTTP {status}"}])
+            meta = MetaParser()
+            meta.feed(body)
+            plain = normalize_space(re.sub(r"<[^>]+>", " ", body))
+            license_hint = first_license(plain)
+            title = app_title or meta.title or f"Steam app {app_id}"
+            complete_claim = any(
+                phrase in plain.casefold()
+                for phrase in ("complete source", "full source", "source code", "game source")
+            )
+            candidate = candidate_from_text(
+                title=title,
+                source=self.name,
+                url=url,
+                query=f"SteamDB package enumeration app:{app_id}",
+                snippet=f"Steam app {app_id}; package {sub_id} {package_name}; {plain[:3500]}",
+                license_hint=license_hint,
+                source_scope="source-package",
+                completeness="complete-source-claim" if complete_claim else "unknown",
+            )
+            candidate.evidence.append(
+                EvidenceRecord(
+                    candidate_id=candidate.candidate_id,
+                    evidence_source="steamdb-package",
+                    evidence_url=url,
+                    evidence_title=package_name or f"Steam Sub {sub_id}",
+                    accessed_at=utc_now(),
+                    evidence_type="package",
+                    source_scope_claim="steam-source-package",
+                    authorization_signal="steam-store-package",
+                    source_completeness_claim="complete-source-claim" if complete_claim else "",
+                    confidence="medium",
+                    notes=plain[:5000],
+                )
+            )
+            return CollectorResult(self.name, [candidate], [])
+        except (asyncio.TimeoutError, UnicodeError) as exc:
+            return CollectorResult(self.name, [], [{"url": url, "error": str(exc)}])
+
+    async def enumerate_app_packages(
+        self,
+        app_id: str,
+        *,
+        app_title: str = "",
+    ) -> CollectorResult:
+        """Enumerate every source-like Steam package attached to an app."""
+        url = f"https://steamdb.info/app/{app_id}/subs/"
+        candidates: list[CandidateRecord] = []
+        errors: list[dict[str, str]] = []
+        try:
+            status, _, body = await self.client.request("GET", url)
+            if status != 200:
+                return CollectorResult(self.name, [], [{"url": url, "error": f"HTTP {status}"}])
+            meta = MetaParser()
+            meta.feed(body)
+            resolved_title = app_title or meta.title or f"Steam app {app_id}"
+            resolved_title = re.sub(
+                r"\s*[·|-]\s*SteamDB.*$",
+                "",
+                resolved_title,
+                flags=re.IGNORECASE,
+            ).strip()
+            resolved_title = re.sub(
+                r"\s+Packages?$",
+                "",
+                resolved_title,
+                flags=re.IGNORECASE,
+            ).strip() or f"Steam app {app_id}"
+
+            parser = LinkTextParser()
+            parser.feed(body)
+            packages: dict[str, str] = {}
+            for href, link_text in parser.links:
+                absolute = urljoin(url, href)
+                match = STEAM_SUB_RE.search(absolute)
+                if not match:
+                    continue
+                name = normalize_space(link_text)
+                if name:
+                    packages[match.group(1)] = name
+            for sub_id in set(STEAM_SUB_RE.findall(body)):
+                packages.setdefault(sub_id, f"Steam Sub {sub_id}")
+
+            source_packages = {
+                sub_id: name
+                for sub_id, name in packages.items()
+                if self._package_is_interesting(name)
+            }
+            results = await asyncio.gather(
+                *(
+                    self.inspect_package(app_id, sub_id, name, app_title=resolved_title)
+                    for sub_id, name in source_packages.items()
+                ),
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, Exception):
+                    errors.append({"url": url, "error": f"package: {result}"})
+                else:
+                    candidates.extend(result.candidates)
+                    errors.extend(result.errors)
+            return CollectorResult(
+                self.name,
+                candidates,
+                errors,
+                metadata={
+                    "app_id": app_id,
+                    "packages_seen": len(packages),
+                    "source_packages": len(source_packages),
+                },
+            )
+        except Exception as exc:
+            errors.append({"url": url, "error": str(exc)})
+        return CollectorResult(self.name, candidates, errors)
+
     async def fetch_search(self, url: str) -> CollectorResult:
         candidates: list[CandidateRecord] = []
         errors: list[dict[str, str]] = []
@@ -384,56 +822,37 @@ class SteamDBCollector:
                 return CollectorResult(self.name, [], [{"url": url, "error": f"HTTP {status}"}])
             parser = LinkTextParser()
             parser.feed(body)
-            for href, text in parser.links:
+            for href, link_text in parser.links:
                 absolute = urljoin(url, href)
                 match = STEAM_APP_RE.search(absolute)
                 if not match:
                     continue
                 app_id = match.group(1)
-                title = normalize_space(text) or f"Steam app {app_id}"
-                if not any(k in f"{title} {text}".lower() for k in ("source", "code", "gpl", "mit", "open")):
-                    continue
-                app_url = f"https://steamdb.info/app/{app_id}/"
+                title = normalize_space(link_text) or f"Steam app {app_id}"
                 candidate = candidate_from_text(
                     title=title,
                     source=self.name,
-                    url=app_url,
+                    url=f"https://steamdb.info/app/{app_id}/",
                     query=url,
-                    snippet=text,
-                    source_scope="steam-app-or-package",
-                )
-                candidates.append(candidate)
-
-            # Search results can be sparse; discover package/source-code URLs embedded in page text.
-            for match in STEAM_SUB_RE.findall(body):
-                sub_url = f"https://steamdb.info/sub/{match}/"
-                if any(c.discovery_url == sub_url for c in candidates):
-                    continue
-                snippet_match = re.search(
-                    rf".{{0,220}}{re.escape(match)}.{{0,500}}",
-                    body,
-                    flags=re.IGNORECASE | re.DOTALL,
-                )
-                snippet = normalize_space(re.sub(r"<[^>]+>", " ", snippet_match.group(0))) if snippet_match else ""
-                if "source" not in snippet.lower():
-                    continue
-                candidate = candidate_from_text(
-                    title=f"Steam package {match} source code",
-                    source=self.name,
-                    url=sub_url,
-                    query=url,
-                    snippet=snippet,
-                    source_scope="source-package",
+                    snippet=f"{link_text} steam_app_id={app_id}",
+                    source_scope="steam-app-search",
                 )
                 candidates.append(candidate)
         except (asyncio.TimeoutError, UnicodeError) as exc:
             errors.append({"url": url, "error": str(exc)})
         return CollectorResult(self.name, candidates, errors)
 
-    async def collect(self) -> CollectorResult:
+    async def collect(
+        self,
+        *,
+        searches: list[str] | None = None,
+        app_ids: list[str] | None = None,
+        max_apps: int = 250,
+    ) -> CollectorResult:
+        search_terms = searches or self.searches
         search_urls = [
             f"https://steamdb.info/search/?a=app&q={quote_plus(term)}"
-            for term in self.searches
+            for term in search_terms
         ]
         results = await asyncio.gather(
             *(self.fetch_search(url) for url in search_urls),
@@ -447,7 +866,42 @@ class SteamDBCollector:
             else:
                 candidates.extend(result.candidates)
                 errors.extend(result.errors)
-        return CollectorResult(self.name, candidates, errors)
+
+        app_map: OrderedDict[str, str] = OrderedDict()
+        for candidate in candidates:
+            match = re.search(r"steam_app_id=(\d+)", candidate.notes)
+            if match:
+                app_map.setdefault(match.group(1), candidate.candidate_title)
+        for app_id in app_ids or self.app_ids:
+            app_map.setdefault(str(app_id), f"Steam app {app_id}")
+
+        app_targets = list(app_map.items())[: max(0, max_apps)]
+        package_results = await asyncio.gather(
+            *(
+                self.enumerate_app_packages(app_id, app_title=title)
+                for app_id, title in app_targets
+            ),
+            return_exceptions=True,
+        )
+        package_candidates: list[CandidateRecord] = []
+        for result in package_results:
+            if isinstance(result, Exception):
+                errors.append({"query": "steamdb", "error": f"enumeration: {result}"})
+            else:
+                package_candidates.extend(result.candidates)
+                errors.extend(result.errors)
+
+        return CollectorResult(
+            self.name,
+            candidates + package_candidates,
+            errors,
+            metadata={
+                "search_terms": len(search_terms),
+                "apps_discovered": len(app_map),
+                "apps_enumerated": len(app_targets),
+                "package_candidates": len(package_candidates),
+            },
+        )
 
 
 class WaybackCollector:
