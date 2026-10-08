@@ -188,7 +188,10 @@ class DeepCollectorTests(unittest.IsolatedAsyncioTestCase):
           <body>
             <p>Commercial game with full source code included.</p>
             <p>Released under MIT.</p>
+            <a href="https://exampledev.itch.io/">Example Dev</a>
             <a href="https://github.com/exampledev/example-game">Source repository</a>
+            <a href="/downloads/example-game-source.zip">Source project ZIP</a>
+            <p>Made with Godot. Price: $5.00</p>
           </body>
         </html>
         """
@@ -211,6 +214,14 @@ class DeepCollectorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(candidate.source_completeness, "complete-source-claim")
         self.assertIn("source-code", candidate.content_types)
         self.assertIn("complete-source-claim", candidate.classification_tags)
+        self.assertEqual(candidate.itch_creator_username, "exampledev")
+        self.assertEqual(candidate.itch_creator_display_name, "Example Dev")
+        self.assertEqual(candidate.itch_price_status, "paid")
+        self.assertEqual(candidate.itch_min_price, "$5.00")
+        self.assertIn("Godot", candidate.itch_engine_tags)
+        self.assertEqual(candidate.itch_source_repository_url, "https://github.com/exampledev/example-game")
+        self.assertEqual(candidate.itch_downloadable_project_status, "yes")
+        self.assertEqual(candidate.itch_downloadable_project_confidence, "high")
         self.assertTrue(any(
             ev.evidence_source == "itchio-source-link"
             for ev in candidate.evidence
