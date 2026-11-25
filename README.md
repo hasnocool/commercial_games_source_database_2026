@@ -62,6 +62,15 @@ The repository now includes asynchronous discovery collectors for **Internet Arc
 The discovery/provenance layer also tracks **leaked, unauthorized, recovered, reverse-engineered, fan-maintained, and authorized source availability separately**. Leak records are research metadata rather than open-source approvals. Classification is faceted so users can filter by provenance, leak status, content type, access state, redistribution rights, authorization, and custom tags.
 
 
+### 2026-11-25 PC C/C++ source and dependency audit
+
+The PC source research now has a dedicated [PC C/C++ source dependency audit](docs/PC_CPP_SOURCE_DEPENDENCY_AUDIT.md). It separates original authorized source releases (Quake, DOOM, POSTAL, ROTT, Shadow Warrior, Serious Sam, and others), restricted releases (Descent, Descent II, FreeSpace 2, Jagged Alliance 2), source ports/reconstructions (Dethrace, Devilution, NBlood, ForsakenX), and archival/leaked material (Blood & Magic demo source; Blood Alpha).
+
+The audit records legacy compiler and build requirements, proprietary SDK/library blockers, excluded game data, component-level licensing, and buildability gates. Examples include POSTAL's Visual C++ 6.0/RSPiX/SmartHeap stack, FreeSpace Open's current CMake 3.21+ and mandatory libRocket submodule, and Descent II's explicitly incomplete source package. The discovery ledgers currently contain **327 candidate records and 525 evidence records**; these are discovery/provenance entries, not the 227 canonical game records above.
+
+No proprietary game assets, disc images, leaked source archives, or demo binaries were added to this repository.
+
+
 Install the optional collector dependency:
 
 ```bash
