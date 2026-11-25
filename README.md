@@ -425,3 +425,5 @@ This tranche begins the expansion beyond PC/DOS to console source archives. Cons
 - **Amnesia: The Dark Descent** remains an official GPL-3 source release; the repository README identifies a legacy FBX SDK 2012 dependency that prevents a straightforward current build.
 
 This tranche added **four candidates and seven evidence records**, enriched three existing candidates, and did not promote any of the new console candidates into canonical `data/games.csv`. It also confirms that the existing `Forsaken` community repository is a substantial port/toolchain migration, not a direct claim that the public ForsakenX repository is an untouched original source drop.
+
+**Current discovery ledger after this tranche:** 301 candidate records, 449 evidence records, 31 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
