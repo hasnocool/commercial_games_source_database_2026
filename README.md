@@ -385,3 +385,23 @@ These entries are separately tagged as community reconstruction, source port or 
 The DOS decompilation/source-port index is now registered as a secondary discovery source. **Dungeons of Noudar** was not added as a commercial game candidate because it is an original DOS homebrew project, not a commercial-game source release. ScummVM source donations remain excluded from the public-source set unless public redistribution rights can be established.
 
 The discovery ledger now contains **296 candidate records, 436 evidence records, and 31 registered discovery sources**. The canonical `data/games.csv` remains at **227 records**.
+
+
+### DOS Games Archive RPG / adventure / strategy audit — first verified tranche (2026-11-25)
+
+The DOS Games Archive source-code index currently reports 96 DOS games. Its list is treated as a discovery index, not proof that each entry is a commercial title, original source release, authorized publication, or OSI-licensed project. The audit reviewed the six listing pages and selected RPG, adventure and strategy records for deeper provenance checks.
+
+**Existing candidates enriched:**
+
+- **Beneath a Steel Sky (1994)** — Revolution Software supplied the original assembly source to ScummVM with its blessing and support; ScummVM announced this on 2003-08-02. DOS Games Archive lists a 405 kB C++/assembly source ZIP. The game's freeware license governs; this is not an OSI source license. The archive ZIP is a mirror, not the authoritative release.
+- **Amulets & Armor (1997)** — original developer United Software Artists released the game as freeware and source under GPL-3.0-only in 2013. The official repository contains C source, DOS and Windows build projects, utilities, artwork/icons and packaged data. Asset/data and third-party library licensing still requires file-level review.
+- **Gladiator (1995)** — Forgotten Sages Development Team announced in the OpenGlad repository that the original game was open-sourced under GPL on 2002-07-01. The modern OpenGlad project is a continued port with additional campaigns, multiplayer and modding features; do not conflate its later code with the original DOS release.
+- **Strife (1996)** — DOS Games Archive explicitly labels `strife-master.zip` as reconstructed sources. It is not the original Rogue Entertainment source release; reconstruction license and redistribution rights need separate review.
+
+**New discovery candidate:**
+
+- **Anacreon: Reconstruction 4021 (1987)** — originally commercial DOS 4X strategy game. Author George Moromisato later released DOS v2.0 as freeware with source; DOS Games Archive lists `DOSAnacreonSource20.zip`. Secondary chronology places source availability around 2004, but the exact release date and source license remain unverified. It is recorded as author-released source with no explicit license identified, not as OSI open source.
+
+**Other audit leads:** Lords of Midnight PC / Doomdark's Revenge PC, Gladiator, Grange Murders, Linley's Dungeon Crawl, and the source entries for other archive titles are being checked individually. Entries such as modern freeware/homebrew, engines, editors, ports and reconstructions are not automatically included as commercial original-source releases. ScummVM donations are treated as evidence of authorized preservation access, not automatically public source redistribution rights.
+
+The DOS Games Archive's current source index is registered as a secondary discovery source. This tranche added one candidate and six evidence records, enriched four existing candidates, and did not change canonical `data/games.csv`. The discovery ledger now contains **297 candidate records, 442 evidence records, and 32 registered discovery sources**.
