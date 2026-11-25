@@ -218,6 +218,14 @@ These are valuable technical records but are not original source releases. Do no
 - Data: NBlood README requires original Blood 1.21 files such as BLOOD.RFF, TILES*.ART, SOUNDS.RFF, SURFACE.DAT and related content.
 - Status: source-derived/reverse-engineered; inspect exact licensing in the repository/package before recording reuse rights.
 
+### Blood (1997) — leaked Alpha source snapshot
+
+- Public archive: https://github.com/videogamepreservation/blood
+- The repository identifies the material as the Blood Alpha source, not the final retail game's source. Hidden Palace records the February 1996 prototype and documents that the source was stolen from a computer dealer employee, partially leaked in 2000, and fully leaked to an FTP archive in 2009.
+- This is a confirmed historical leak, not a developer source release. A 2008 interview with Blood designer Nick Newhard also states that the original source was stolen and that the final source was not publicly released by the rightsholder.
+- The archive contains C/C++-era source/build material, including SRC/ and MAKEFILE, alongside resource scripts and proprietary demo/prototype data. It is not the source for the final commercial release.
+- Status: leak / unauthorized; retain only as a provenance record. Do not mirror, redistribute, or use it as a source candidate for authorized development.
+
 ### Forsaken (1998) — ForsakenX lineage
 
 - Project: https://github.com/ForsakenW/forsaken
