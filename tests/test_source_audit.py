@@ -47,6 +47,8 @@ class SourceAuditTests(unittest.IsolatedAsyncioTestCase):
             report = await audit_source_tree(root)
             self.assertEqual(report["inventory"]["file_count"], 0)
 
+
+class SourceAuditCliTests(unittest.TestCase):
     def test_cli_writes_valid_json_report(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "src"
