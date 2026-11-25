@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
@@ -49,13 +49,7 @@ DEPENDENCY_FILES = {
     "cargo.toml", "go.mod", "package.json", "pyproject.toml",
     "pom.xml", "build.gradle", "packages.config",
 }
-INCLUDE_RE = re.compile(r'^\\s*#\\s*include\\s*"([^"]+)"', re.MULTILINE)
-PACKAGE_RE = re.compile(
-    r"(?im)^\\s*(?:find_package|pkg_check_modules)\\s*\\(\\s*([A-Za-z0-9_.+-]+)"
-)
-CMAKE_DEP_RE = re.compile(r"(?im)^\\s*find_dependency\\s*\\(\\s*([A-Za-z0-9_.+-]+)")
-
-
+INCLUDE_RE = re.compile(r'^\s*#\s*include\s*"([^"]+)"', re.MULTILINE)
 @dataclass(slots=True)
 class FileEntry:
     path: str
@@ -130,7 +124,7 @@ async def _scan(root: Path) -> dict:
         text = await _read_text(root / rel)
         name = Path(rel).name.casefold()
         if name == "cargo.toml":
-            dependencies.update(re.findall(r'(?m)^\\s*([A-Za-z0-9_-]+)\\s*=\\s*["{]', text))
+            dependencies.update(re.findall(r'(?m)^\s*([A-Za-z0-9_-]+)\s*=\s*["{]', text))
         elif name == "package.json":
             try:
                 package = json.loads(text)
@@ -141,7 +135,7 @@ async def _scan(root: Path) -> dict:
         elif name == "requirements.txt":
             dependencies.update(
                 match.group(1) for line in text.splitlines()
-                if (match := re.match(r"\\s*([A-Za-z0-9_.-]+)", line))
+                if (match := re.match(r"\s*([A-Za-z0-9_.-]+)", line))
                 and not line.lstrip().startswith("#")
             )
         elif name in {"conanfile.txt", "conanfile.py", "vcpkg.json"}:
@@ -155,7 +149,7 @@ async def _scan(root: Path) -> dict:
         text = await _read_text(root / entry.path, limit=500_000)
         for include in INCLUDE_RE.findall(text):
             candidate = (Path(entry.path).parent / include).as_posix()
-            normalized = os.path.normpath(candidate).replace("\\\\", "/").casefold()
+            normalized = os.path.normpath(candidate).replace("\\", "/").casefold()
             if normalized not in by_path and include.casefold() not in by_path:
                 unresolved_includes.append({"from": entry.path, "include": include})
 
