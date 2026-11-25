@@ -220,7 +220,7 @@ def _atomic_write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\\n") as handle:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
@@ -251,7 +251,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     report = asyncio.run(audit_source_tree(args.source))
-    rendered = json.dumps(report, indent=2, sort_keys=True) + "\\n"
+    rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:
         _atomic_write(args.output, rendered)
     else:
