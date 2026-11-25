@@ -17,11 +17,11 @@ class SourceAuditTests(unittest.IsolatedAsyncioTestCase):
             (root / "src").mkdir()
             (root / "assets").mkdir()
             (root / "src" / "main.c").write_text(
-                '#include "local.h"\\n#include "missing.h"\\n', encoding="utf-8"
+                '#include "local.h"\n#include "missing.h"\n', encoding="utf-8"
             )
-            (root / "src" / "local.h").write_text("#pragma once\\n", encoding="utf-8")
-            (root / "src" / "game.cpp").write_text("int main() { return 0; }\\n", encoding="utf-8")
-            (root / "CMakeLists.txt").write_text("project(sample)\\n", encoding="utf-8")
+            (root / "src" / "local.h").write_text("#pragma once\n", encoding="utf-8")
+            (root / "src" / "game.cpp").write_text("int main() { return 0; }\n", encoding="utf-8")
+            (root / "CMakeLists.txt").write_text("project(sample)\n", encoding="utf-8")
             (root / "assets" / "tile.bin").write_bytes(b"asset")
 
             report = await audit_source_tree(root)
@@ -41,7 +41,7 @@ class SourceAuditTests(unittest.IsolatedAsyncioTestCase):
             outside = Path(temp) / "outside"
             root.mkdir()
             outside.mkdir()
-            (outside / "secret.c").write_text("int x;\\n", encoding="utf-8")
+            (outside / "secret.c").write_text("int x;\n", encoding="utf-8")
             (root / "linked").symlink_to(outside, target_is_directory=True)
 
             report = await audit_source_tree(root)
@@ -55,7 +55,3 @@ class SourceAuditTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(main([str(root), "--output", str(output)]), 0)
             payload = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(payload["schema_version"], 1)
-
-
-if __await__:
-    pass
