@@ -280,3 +280,24 @@ New candidate leads include **Actua Soccer 96, Age of Pirates: Captain Blood, Ag
 This is a **high-recall source-availability research layer**, not a list of approved open-source projects. The source-code index explicitly includes leaks, accidental disclosures, recovered archives, and material with unclear legal status. Candidates are tagged accordingly; no leaked or accidentally exposed code is promoted as authorized, and no license or redistribution permission is inferred from a catalogue listing. Primary archives, developer/rightsholder statements, source completeness, exact versions, and asset/data rights still require item-level verification.
 
 After this pass, the discovery ledgers contain **279 candidate records, 370 evidence records, and 25 registered discovery sources**. The canonical data/games.csv was not changed; candidate records remain in needs-verification until independently reviewed.
+
+
+### Modern PC games: original release years 2020–2026 (research pass, 2026-11-25)
+
+This pass separates the **original game release year** from the **source availability/release date** recorded in the evidence ledger. The requested 2027 year is reserved for future releases because it has not occurred yet.
+
+New candidate records in this date range:
+- **Friday Night Funkin'** (2020): official source code under Apache-2.0; assets have a separate license.
+- **Fall Guys: Ultimate Knockout** (2020): reported accidental intermediate IL2CPP source inclusion in a 2021 update; unauthorized/unclear, not an open-source release.
+- **FIFA 21** (2020): reported source-code leak in 2021; unauthorized.
+- **Guilty Gear -Strive-** (2021): reported source archive leak in 2025; unauthorized.
+- **Roboden** (2023): commercial Windows RTS; public MIT source repository.
+- **Celeste 64: Fragments of the Mountain** (2024): source repository from the original developers; source folder is MIT, while game IP/content has separate restrictions.
+- **Space Race** (2024): Windows game with source code identified as MIT in its credits; third-party asset rights need separate review.
+- **Worlds Upon The Wind** (2026): developer released the game source and assets as CC0 in September 2026, excluding third-party audio.
+
+The existing **Skin Deep** (2025) canonical candidate was refreshed with its official 2025-06-26 developer source-release announcement. Its C++ game/engine source is GPL; art, models, textures, audio, and levels are excluded from the source license and are not redistributable. The existing candidate was updated rather than duplicated.
+
+The MobyGames officially released source-code group was added as a discovery source. Its stated criteria exclude unofficial leaks and SDK-only entries; use it to discover developer/publisher releases, then verify each primary source. Other secondary indexes are used for leak leads only. No leaked source is treated as licensed or authorized.
+
+After this pass, the discovery ledgers contain **287 candidate records, 381 evidence records, and 26 registered discovery sources**; the canonical data/games.csv remains at **227 records**. These are discovery-layer records and require item-level validation before canonical promotion.
