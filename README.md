@@ -524,3 +524,48 @@ cgsdb-audit ./candidate-checkout --output ./source-audit.json
 This tranche added **one candidate (Magician) and five evidence records**, enriched five existing candidates, and registered four discovery sources. No canonical game records were added. The 1080, Chill and Beatmania descriptions were narrowed to reflect what the evidence actually establishes.
 
 **Current discovery ledger:** 322 candidate records, 481 evidence records, 35 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
+
+### Source tree static inventory — PS1 / GBA / N64 tranche (2026-11-25)
+
+This pass inspected source files, build scripts and published file-tree inventories. It did **not** download or mirror leaked Nintendo source files. The public `bowsersbigbeanburrito/N` repository contains metadata indexes (directory trees, CSV file inventories and checksums), not the underlying leaked game source archives.
+
+**PS1 — retail-disc archives**
+
+- **Battle Konchuuden:** direct source inspection confirms GNU C for PlayStation R3000. `P00/MAINSYS.C`, `P01/BATTLE.C` and `P08/AKMCRD.C` show system, battle and memory-card game logic. `MAK/P01.MAK` calls Psy-Q `ccpsx`, `psylib` and `psymake`; `MAKE.BAT` invokes `psymake`. The repository tree has 19,686 files: 67 C, 65 headers, 108 .mak, 45 .obj and 25 .lib, plus extensive game assets. README says “probably complete.” Proprietary SDK headers/libraries remain dependencies; no current build or authorization is established.
+- **Beatmania APPEND 5th MIX:** KCEJ Wiki identifies the exact location: `cdrom0:\\DUMMY` on Beatmania Best Hits (SLPM-86596), an LZH archive of `C:\\5thMix\\Work.5th`. Its file inventory lists `MAIN/BM.C`, gameplay code under `TAN` (including `GM_GAME.C`, `GM_NOTE.C`, `JUDGE.C`, `SCENE.C`), game/menu code under `LIBBM`, filesystem, memory-card, display, sound, debug tools, headers, makefiles, linker files, objects and libraries. The wiki says Psy-Q SDK can compile it. Some libraries were shared with Konami's Metal Gear Solid production department. Archive extraction and actual build still outstanding; license and permission unknown.
+- **Chill:** still only a prototype snapshot identified in the retail-disc padding file; not promoted to a complete final-game source claim.
+
+**GBA — leaked CVS metadata inventory**
+
+- **Super Mario Advance / marioAGB:** 3,521 files. The `src` tree has 283 C files, 99 headers and 7 assembly files. Separate `sound_data` contains 591 assembly files, 603 objects, 288 AIFF and 501 MIDI files. There are 14 Makefile/map-related build entries including root and subproject makefiles, and seven .map files; no .ld linker script was identified.
+- **Wario Land 4 / wario4land_gba_ique:** 6,388 files. The `src` tree has 2,449 C files, 85 headers and 3 assembly files. `sound/src` contains another 1,068 assembly files. There are 1,182 objects, 51 make/build files, one .map and one .elf. The game is divided into many subsystem makefiles (enemy, game, gmap, mini, pause, select, shop, title and tmsc). No .ld linker script was identified.
+- These are file-tree counts from metadata indexes, not an extraction of the leaked archives. The source appears game-specific, and sound middleware is separable, but exact SDK/compiler dependencies, localization deltas, completeness and buildability still need local extraction. Both remain unauthorized leak records; do not redistribute source.
+
+**N64 — game-source versus SDK separation**
+
+The metadata index provides useful counts for several additional source trees. Counts below are indexed files, not verified unique final-game source files:
+
+| Game | Files | C | C++ | Headers | Objects | Build files |
+|---|---:|---:|---:|---:|---:|---:|
+| Animal Crossing / Forest | 37,602 | 9,818 | 0 | 1,934 | 9,757 | 1 .mk |
+| Dr. Mario 64 | 6,252 | 138 | 0 | 92 | 1 | 8 .mak |
+| F-Zero X | 4,166 | 263 | 0 | 132 | 207 | none identified by suffix |
+| Mario Kart 64 | 3,243 | 2,384 | 0 | 151 | 153 | none identified by suffix |
+| NBA Courtside | 12,971 | 291 | 62 | 251 | 0 | 13 makefiles |
+| NBA Courtside 2 | 12,978 | 291 | 62 | 251 | 1 | 13 makefiles |
+| Star Fox 64 | 18,204 | 1,903 | 1,260 | 206 | 3,196 | 2 .mk |
+| Wave Race 64 | 8,691 | 869 | 0 | 249 | 91 | none identified by suffix |
+| Yoshi's Story | 1,988 | 83 | 0 | 29 | 947 | 11 .mk |
+| Super Mario 64 | 3,055 | 479 | 0 | 246 | 67 | none identified by suffix |
+| Ocarina of Time | 26,462 | 1,030 | 0 | 1,229 | 16,840 | 2 .mk |
+| Majora's Mask | 4,472 | 11 | 0 | 159 | 1,975 | 3 .mk |
+
+Animal Crossing's inventory contains a nested `forest_patch030603.tar` subtree, so file counts may include a duplicate/patch snapshot. Majora's Mask has only 11 C files against 1,975 objects and should be treated as a likely partial source snapshot, not complete source. Ocarina of Time has a much larger source inventory but is still unverified. The `z_ocarina2` Master Quest directory is a source branch/prototype lineage, not a separate original N64 commercial release, so it has not been added as a separate game candidate. The 1080 tree contains 329 files but no C/C++ source: 167 objects, 124 binary files and one header; its `libgdl_u64.a` is precompiled. It is not counted as a confirmed C/C++ source release.
+
+The Gigaleak root's `devkit`, `devsys`, `os20l` and `ostrees` directories are SDK/toolchain material and are kept separate from individual game directories. All Nintendo source-tree candidates remain unauthorized leaks with no redistribution permission or license established.
+
+### Static audit execution status
+
+The source-audit utility's quoted-include regular expressions and path normalization were corrected after reviewing the implementation. However, there is no local checkout of the candidate repositories mounted in this session, and the metadata-only GitHub index is not the original source archive. Therefore the audit CLI and its unit tests have **not** been executed against a real local checkout in this pass. No build was run and no reproducible build result is claimed. The next execution gate is to obtain authorized/local source trees, run the utility and tests, then build only where the original SDK and rights allow.
+
+This tranche adds **three N64 candidates** (Super Mario 64, Ocarina of Time and Majora's Mask), **15 new evidence records**, updates the existing PS1/GBA/N64 assessments, and registers two sources. Canonical `data/games.csv` is unchanged.
