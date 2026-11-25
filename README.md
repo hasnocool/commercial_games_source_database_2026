@@ -476,3 +476,14 @@ Retail-disc discovery does not mean the original developer authorized public red
 This tranche added **19 candidates and 21 evidence records**, enriched existing Eye of the Beholder II, Forsaken and DOOM FX records, and did not promote any newly discovered console title into canonical `data/games.csv`. The N64/GBA leak records remain excluded from authorized-source counts.
 
 **Current discovery ledger:** 320 candidate records, 470 evidence records, 31 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
+
+### PC C/C++ source verification — parallel index audit (2026-11-25)
+
+- **Serious Sam Classic (The First Encounter / The Second Encounter)** — Croteam officially released Serious Engine v1.10 on 2016-03-11 under GPL-2.0. The official repository README lists engine, entity logic, game logic, main executable, editors and tools, and documents Visual Studio 2013/2015 builds. This is more than an engine-only SDK: game logic is included. Original game GRO resources are still required for original levels, and some optional features are disabled for copyright reasons. Build instructions are documented but were not independently executed.
+- **S.T.A.L.K.E.R.: Call of Pripyat** — the archived X-Ray Engine 1.6.02 source snapshot is C++-oriented and has an original README and custom License.txt. The README explicitly says the project is not sanctioned by GSC Game World. The license describes the code as proprietary GSC source and prohibits commercial use while permitting redistribution under stated conditions. It is source-available under restrictive custom terms, not OSI open source and not an authorized rightsholder release.
+- **Eye of the Beholder II** — the public mirror points to an Internet Archive original-source archive; directory inventory shows AESOP interpreter/runtime and related components. The exact source language, license, completeness and reproducible build still need archive-level audit.
+- **Forsaken** — classification corrected to community port/source lineage. ForsakenX migrated the original Windows/DirectX 6/MSVC code to GCC/SDL and cross-platform libraries; a separate fork states its aim is to remain closer to original code. Do not count this port as a pristine original source archive.
+
+This PC audit enriched Serious Sam Classic and added one S.T.A.L.K.E.R. candidate. The database distinguishes engine + game logic from engine-only releases and records build instructions separately from a verified successful build.
+
+**Current discovery ledger:** 321 candidate records, 474 evidence records, 31 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
