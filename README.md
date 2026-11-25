@@ -427,3 +427,52 @@ This tranche begins the expansion beyond PC/DOS to console source archives. Cons
 This tranche added **four candidates and seven evidence records**, enriched three existing candidates, and did not promote any of the new console candidates into canonical `data/games.csv`. It also confirms that the existing `Forsaken` community repository is a substantial port/toolchain migration, not a direct claim that the public ForsakenX repository is an untouched original source drop.
 
 **Current discovery ledger after this tranche:** 301 candidate records, 449 evidence records, 31 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
+
+### Nintendo N64 / GBA and PlayStation source discovery — second console tranche (2026-11-25)
+
+This pass expands the console ledger while keeping unauthorized disclosures and retail-disc recoveries separate from authorized releases. The RetroReversing console index is a discovery aid, not proof of licensing or permission.
+
+**Nintendo 64 — Gigaleak 2 source inventory (10 candidates):**
+
+- 1080 Snowboarding
+- Animal Crossing (Animal Forest)
+- Dr. Mario 64
+- F-Zero X
+- Mario Kart 64
+- NBA Courtside
+- NBA Courtside 2: Featuring Kobe Bryant
+- Star Fox 64
+- Yoshi's Story
+- Wave Race 64
+
+These are recorded as **found/leaked**, not authorized source releases. RetroReversing's inventory identifies individual N64 source directories in the July 2020 CVS archive, which reportedly originated from Nintendo-to-iQue/Routefree localization repositories. The database does not host or redistribute the leaked files. Language, exact source completeness, build files and dependencies remain unaudited.
+
+**Game Boy Advance — Gigaleak 2 source inventory (2 candidates):**
+
+- Super Mario Advance
+- Wario Land 4
+
+Both are recorded as unauthorized leak discoveries. Their directory presence does not establish complete game source, C language composition, buildability or redistribution rights.
+
+**PlayStation 1 — retail-disc and repository discoveries (7 candidates):**
+
+- **360: Three Sixty** — source reportedly left on the retail disc.
+- **Battle Konchuuden** — source reportedly found on the retail CD-ROM.
+- **Beatmania APPEND 5th MIX** — Psy-Q source reportedly found on the retail disc.
+- **Chill** — an earlier source snapshot reportedly embedded in the retail disc's `cdfiller.dat` archive.
+- **Jimmy Johnson's VR Football '98** — historical source archive dated 1997-05-01; provenance and archive contents still require inspection.
+- **SpongeBob SquarePants: SuperSponge** — public repository claims full VSS history, complete source and build scripts; identifies C++ and a Windows 98-era Slink requirement. Its README contains a copy/paste title mismatch in the release-information section, so build/completeness claims remain unverified.
+- **Ultimate Mortal Kombat 3** — repository explicitly labels the PS1 source incomplete and not buildable.
+
+Retail-disc discovery does not mean the original developer authorized public redistribution. These candidates remain source-found with license/authorization unresolved unless independent rights evidence is found.
+
+**PC source lineage correction:**
+
+- **Eye of the Beholder II** — the source mirror README points to the original Internet Archive source archive and says the repository contains its unpacked contents. The mirror tree includes AESOP interpreter/runtime, documentation and sound directories. Exact license, C/C++ inventory, completeness and buildability remain to be audited.
+- **Forsaken** — the ForsakenX repository is a substantial community port from the original Windows/DirectX 6/MSVC environment to GCC/SDL and cross-platform libraries. The separate ForsakenW fork says it aims to stay closer to the original source. This is now classified as a port/source-lineage record, not a pristine original source archive.
+
+**Existing source record refinement:** DOOM FX's public repository contains a GPL-3.0 license, source and make directories, conversion tools, documentation, binaries and a SNES makefile. Its 65816/Super FX assembly source should not be counted as C/C++.
+
+This tranche added **19 candidates and 21 evidence records**, enriched existing Eye of the Beholder II, Forsaken and DOOM FX records, and did not promote any newly discovered console title into canonical `data/games.csv`. The N64/GBA leak records remain excluded from authorized-source counts.
+
+**Current discovery ledger:** 320 candidate records, 470 evidence records, 31 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
