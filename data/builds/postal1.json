@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "project": "POSTAL",
+  "upstream_repository": "https://github.com/RWS-Studios/POSTAL-SourceCode",
+  "upstream_revision": "adb5a30c10dcdfe7758883938f706cb9b53cf496",
+  "inspected_at": "2026-11-25",
+  "target": {
+    "os": "Linux",
+    "architecture": "x86_64",
+    "configuration": "release",
+    "steamworks": false,
+    "product": "POSTAL_2015",
+    "locale": "US"
+  },
+  "build_system": {
+    "type": "GNU Make",
+    "entrypoint": "makefile",
+    "helper": "makeit.sh",
+    "expected_output": "bin/postal1-x86_64"
+  },
+  "toolchain": {
+    "compiler_c": "gcc",
+    "compiler_cpp": "g++",
+    "make": "GNU Make",
+    "minimum_versions": "not yet verified"
+  },
+  "dependencies": [
+    {
+      "name": "SDL2",
+      "requirement": "development headers and host x86-64 library",
+      "source": "system package",
+      "version": "unknown; bundled headers identify 2.0.5",
+      "status": "required-unverified"
+    },
+    {
+      "name": "GCC/G++",
+      "requirement": "C and C++ compiler",
+      "source": "system",
+      "status": "required-unverified"
+    },
+    {
+      "name": "GNU Make",
+      "requirement": "makefile execution",
+      "source": "system",
+      "status": "required-unverified"
+    },
+    {
+      "name": "Steamworks SDK",
+      "requirement": "only WITH_STEAMWORKS=1",
+      "source": "third-party SDK",
+      "status": "optional-excluded-from-baseline"
+    },
+    {
+      "name": "SWIG + Python 2",
+      "requirement": "optional Python binding target only",
+      "source": "system",
+      "status": "optional-excluded-from-baseline"
+    }
+  ],
+  "source_scope": "Current POSTAL_2015 branch; not an exact rebuild of original 1997 retail release",
+  "data_requirement": "Compatible lawfully obtained POSTAL game data/SAK archives; not included in this research repository",
+  "license": "GPL-2.0 for covered source; assets and third-party components separately reviewed",
+  "verification": {
+    "source_revision_identified": true,
+    "static_build_system_inspection": true,
+    "local_checkout": false,
+    "compile": false,
+    "runtime": false,
+    "reproducible": false,
+    "blocker": "Execution container could not resolve github.com; no source checkout or compiler run occurred."
+  },
+  "gates": {
+    "G0": "partial",
+    "G1": "pending",
+    "G2": "partial",
+    "G3": "blocked",
+    "G4": "pending",
+    "G5": "pending",
+    "G6": "pending",
+    "G7": "pending"
+  }
+}
