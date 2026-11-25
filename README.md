@@ -569,3 +569,20 @@ The Gigaleak root's `devkit`, `devsys`, `os20l` and `ostrees` directories are SD
 The source-audit utility's quoted-include regular expressions and path normalization were corrected after reviewing the implementation. However, there is no local checkout of the candidate repositories mounted in this session, and the metadata-only GitHub index is not the original source archive. Therefore the audit CLI and its unit tests have **not** been executed against a real local checkout in this pass. No build was run and no reproducible build result is claimed. The next execution gate is to obtain authorized/local source trees, run the utility and tests, then build only where the original SDK and rights allow.
 
 This tranche adds **three N64 candidates** (Super Mario 64, Ocarina of Time and Majora's Mask), **17 new evidence records**, updates the existing PS1/GBA/N64 assessments, and registers two sources. Canonical `data/games.csv` is unchanged.
+
+### PC C/C++ original-release audit — third tranche (2026-11-25)
+
+This tranche inspected official source repositories, their README/COPYING files, project files and dependency manifests. It enriches existing candidates; no new canonical game rows were added.
+
+| Game | Source inventory | Build/dependency findings | Rights and scope |
+|---|---|---|---|
+| Quake II | 187 C, 77 headers, 13 assembly, 9 ASM; 371 files | Complete-source claim for v3.19; Visual C++ 6.0 project; Linux build explicitly untested for original release | Official John Carmack README says GPL-2.0; original game data remains under original terms |
+| Quake III Arena | 445 C, 129 C++, 337 headers; 1,409 files | 35 build/project files; VC7/Visual C++ 2003; Linux GCC 2.95, G++ 2.95, NASM and X11 headers; Mac project | Official GPL-2.0 release; third-party zlib, RSA MD4, Berkeley, CWI ADPCM and IJG JPEG notices; game data separate |
+| Return to Castle Wolfenstein SP | 315 C, 12 C++, 212 headers; 620 files | Visual C++ 2008; legacy Perl `cons`; run `extractfuncs.bat` to generate `g_save.c` | GPL-3.0 with additional terms and excluded third-party code; game data under original EULA |
+| Return to Castle Wolfenstein MP | 285 C, 8 C++, 149 headers; 520 files | Visual C++ 2008; legacy `cons` build; latest retail patch/game data required | Separate multiplayer source release; GPL-3.0 with additional terms/exclusions; data separate |
+| Penumbra: Overture | 59 C++, 64 headers; 133 files | CMake, Visual Studio and Xcode; requires separate HPL1Engine and OALWrapper repos plus external Newton, AngelScript, FLTK, OpenGL/Cg, Ogg/Vorbis, OpenAL and SDL dependencies | Game code GPL-3.0; HPL1 engine GPL-3.0; OALWrapper has its own permissive notice license; assets/data separate |
+| Amnesia: The Dark Descent | 734 C++, 780 headers; 1,631 files | 55 build/project files; CMake and VS2010; HPL2 engine/editor code included; Autodesk FBX SDK 2012 unavailable and explicitly blocks compile | Official GPL-3.0 source; commercial game assets/data remain proprietary |
+
+**Important source completeness distinctions:** Quake II is the clearest full source release in this tranche because its official README explicitly says “complete source code” and names the exact version. Quake III includes engine/game code and major tools but its original release was not extensively tested across platforms. RTCW single-player and multiplayer are distinct source repositories and must be counted as separate code scopes, not one interchangeable source tree. Penumbra's game repository is not self-contained: CMake explicitly references sibling engine/wrapper repositories and a separate dependency directory. Amnesia has broad game and engine/editor code, but its documented FBX SDK blocker prevents claiming a successful build.
+
+The discovery ledger now contains **325 candidates, 506 evidence records and 39 registered sources**; canonical `data/games.csv` remains at 227 records. No builds were executed in this pass.
