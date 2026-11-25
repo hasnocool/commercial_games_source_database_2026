@@ -143,6 +143,32 @@ A GitHub repository's public visibility, a permissive-looking README, or an OSI 
 - Audit next: inventory src/, identify excluded-code sections in README.txt and COPYING.txt, inspect SCons scripts and all bundled third-party notices, and test a clean build independently.
 - Status: official source release; separate game data is freely obtainable from the original distribution channel but is not automatically GPL-licensed.
 
+### POSTAL (1997) — Running With Scissors
+
+- Official rightsholder repository: https://github.com/RWS-Studios/POSTAL-SourceCode
+- Running With Scissors announced the source release on 2016-12-29 under GPL-2.0. The official GitHub organization describes the repository as the original POSTAL source code.
+- Current tree inspection: 1,419 tracked files, including 210 .cpp, 241 .c, 627 .h, 12 .cc, 15 .vcproj, 9 .vcxproj, one .sln and one .mak. It contains the RSPiX engine/library source as well as game code and multiple product configurations.
+- Historical build notes in Postal Overview.txt (updated 2000-12-22): Windows used Visual C++ 6.0 and Postal.dsw; Mac used Metrowerks CodeWarrior (exact version unknown). Product builds are selected by TARGET, LOCALE and SPAWN preprocessor definitions. The workspace contains RSPiX projects (BLiT, BLiT3D, Blue Audio, Blue, Blue Video, Cyan, Green, Orange, WishPiX), Postal Common, and product-specific targets.
+- Dependency constraints: RSPiX includes platform-specific Blue and Cyan layers for Windows and Mac; porting to a new platform requires rewriting the Blue layer and potentially parts of Cyan. SmartHeap by Microquill was used on Windows and Mac but can be disabled with NOSHMALLOC. The source tree also contains binary libraries and dynamic libraries; identify which are proprietary, redistributable, obsolete or replaceable before attempting a clean build.
+- The historical overview says only Postal and Special Delivery were compiled for Mac; current project settings target Japan Add On, Japan Super Postal, Postal Plus and Postal Plus MP. It does not claim all earlier editions were rebuilt from the current tree.
+- Data: the source release licenses code under GPL-2.0; do not infer that game content, music, video, fonts or any bundled third-party files are also GPL-covered.
+- Status: excellent official C/C++ source candidate with substantial engine source and multiple build targets; old toolchain and SmartHeap/binary-library dependencies need mapping.
+
+## Priority 4 — archival source snapshots with unresolved rights
+
+These records can be valuable for historical research, but no source redistribution permission should be inferred from public access. Keep the source archive and any copyrighted demo/game data outside this repository.
+
+### Blood & Magic (1996) — Tachyon Studios / Interplay
+
+- Public archive lead: https://github.com/mhjlam/BAM
+- Repository inspection found a demo distribution tree with CODE/SRC and CODE/TIGRE source directories alongside BAM.EXE, DOS4GW.EXE, installer binaries, map/data files, sound banks, Smacker videos, and other demo content. This is not evidence of a rightsholder-authorized source release.
+- Static tree inventory: 1,311 files; 131 .cpp, 138 .hpp, 59 .h, 4 .asm, 15 .mak and 7 .lib files, plus extensive animation, audio, font, palette, video, executable and game-data files. Treat counts as the currently inspected Git tree, not a complete commercial game's source count.
+- The README identifies the archive as the Blood & Magic interactive demo and asserts copyright 1996 Tachyon Studios; it also identifies Smacker video technology as third-party technology.
+- Build evidence from CODE/SRC/BAM.MAK and related makefiles: Watcom 386 compiler/linker/assembler tools (wcl386, wlink, wasm); libraries include tigre.lib, sosdw1cr, sosmw1cr, netnowr.lib, cpfr32.lib and smack.lib. The makefile assumes a hard-coded C:\BAM\TIGRE path.
+- CODE/TIGRE includes Greenleaf Comm++ code headers marked copyright 1989–1995 Greenleaf Software, plus proprietary/binary library dependencies. Additional HMI, networking, DOS extender and Smacker components require independent rights/dependency review.
+- Rights: README contains standard all-rights-reserved copyright statements and no source-code license grant was identified in the inspected repository. Classify as archival recovery / authorization unresolved, not open source; do not redistribute or commercially reuse the code or assets based on the public repository.
+- Next: locate the original demo media/announcement and compare its source directory to this public tree; inspect per-file headers, binary library provenance, and whether the source was intentionally included in the distributed demo. Do not execute or build the archive until it has been safely isolated and licensing is clarified.
+
 ## Priority 2 — authorized but commercially restricted source
 
 ### FreeSpace 2 (1999) — Volition
