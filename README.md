@@ -518,6 +518,6 @@ python -m cgsdb_discovery.source_audit ./candidate-checkout --output ./source-au
 cgsdb-audit ./candidate-checkout --output ./source-audit.json
 ```
 
-This tranche added **one candidate (Magician) and five evidence records**, enriched four existing candidates, and registered four discovery sources. No canonical game records were added. The 1080, Chill and Beatmania descriptions were narrowed to reflect what the evidence actually establishes.
+This tranche added **one candidate (Magician) and five evidence records**, enriched five existing candidates, and registered four discovery sources. No canonical game records were added. The 1080, Chill and Beatmania descriptions were narrowed to reflect what the evidence actually establishes.
 
 **Current discovery ledger:** 322 candidate records, 479 evidence records, 35 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
