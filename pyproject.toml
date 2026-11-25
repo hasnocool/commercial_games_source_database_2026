@@ -19,3 +19,4 @@ include = ["cgsdb_discovery*"]
 
 [project.scripts]
 cgsdb = "cgsdb:main"
+cgsdb-audit = "cgsdb_discovery.source_audit:main"
