@@ -154,7 +154,7 @@ A GitHub repository's public visibility, a permissive-looking README, or an OSI 
 - Data: the source release licenses code under GPL-2.0; do not infer that game content, music, video, fonts or any bundled third-party files are also GPL-covered.
 - Status: excellent official C/C++ source candidate with substantial engine source and multiple build targets; old toolchain and SmartHeap/binary-library dependencies need mapping.
 
-## Priority 4 — archival source snapshots with unresolved rights
+## Archival source snapshots with unresolved rights
 
 These records can be valuable for historical research, but no source redistribution permission should be inferred from public access. Keep the source archive and any copyrighted demo/game data outside this repository.
 
@@ -263,14 +263,18 @@ Do not mark a title B3 or above from README claims alone. Record the exact sourc
 
 ## Next execution order
 
-1. **Duke Nukem 3D:** component-level license review, especially Build Engine and audio code; hash and compare the canonical 2003 archive.
-2. **Shadow Warrior:** inspect the official 1.2 source tree, audiolib, kenbuild, and Open Watcom build instructions.
-3. **Quake / Quake II:** inventory the original release trees and build with isolated legacy compilers.
-4. **Jagged Alliance 2:** verify Wildfire CD provenance and preserve the non-commercial license; inspect SGP dependency.
-5. **FreeSpace 2:** map current maintained project dependencies from its active build files, retaining non-commercial restriction.
-6. **Abuse:** compare original public-domain source with the SDL2/CMake port and isolate disputed sound/data.
-7. **Serious Sam / Marathon / LBA2:** build dependency maps and game-data separation checks.
-8. **Dethrace / Devilution / NBlood / Forsaken:** maintain a separate reconstruction/port track.
+1. **POSTAL:** verify GPL-2.0 coverage across the source tree; map RSPiX, SmartHeap and bundled binaries; attempt a clean MSVC-compatible build.
+2. **Duke Nukem 3D:** component-level license review, especially Build Engine and audio code; hash and compare the canonical 2003 archive.
+3. **Rise of the Triad:** inspect GPL-2.0 coverage, audio library and precompiled assembly objects; reproduce the Watcom 10.0b build.
+4. **Descent / Descent II:** record non-commercial license restrictions; confirm Descent II missing modules and do not claim a buildable source package.
+5. **Shadow Warrior:** inspect the official 1.2 source tree, audiolib, kenbuild, and Open Watcom build instructions.
+6. **Quake / Quake II:** inventory the original release trees and build with isolated legacy compilers; reconcile DOOM's README/LICENSE wording separately.
+7. **Jagged Alliance 2:** verify Wildfire CD provenance and preserve the non-commercial license; inspect SGP dependency.
+8. **FreeSpace 2:** map current maintained project dependencies from its active build files, retaining Volition's restriction on original source.
+9. **Abuse:** compare original public-domain source with the SDL2/CMake port and isolate disputed sound/data.
+10. **Serious Sam / Marathon / LBA2:** build dependency maps and game-data separation checks.
+11. **Dethrace / Devilution / NBlood / Forsaken:** maintain a separate reconstruction/port track.
+12. **Blood & Magic:** rights/provenance investigation only; no build or redistribution until authorization is established. Blood Alpha remains a historical leak record only.
 
 ## Non-goals
 
