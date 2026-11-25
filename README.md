@@ -243,3 +243,20 @@ or to `duplicate`, `rejected`, or `unauthorized`.
 Discovery services are deliberately separated by role. Internet Archive and preservation archives maximize historical recall; SteamDB and IGDB help identify commercial releases; GitHub and developer/rightsholder pages are stronger for repository/license/authorization verification; Wayback is used to recover historical announcements and removed links.
 
 A public archive copy is not automatically an authorized open-source release. The canonical dataset should only claim an open-source status when the evidence supports the license and provenance.
+
+### Expanded source registry — 2026-11-25
+
+The discovery registry in `data/discovery/sources.csv` now includes dedicated entries for the official id Software GitHub organization, Internet Archive's Game Source Code collection, its Advanced Search and item-metadata interfaces, a DOOM SNES archival example, Video Game Preservation and Historical Source repositories, Quake engine/source-port indexes, and broader commercial-game/arcade source research indexes.
+
+These entries broaden the places researchers can search; they do **not** imply that every index is an implemented automated collector. The existing collector CLI only runs source adapters that are actually implemented. Treat indexes and archive collections as candidate discovery surfaces, then capture item-level evidence and verify the exact source scope, authorization, license, and asset rights.
+
+Examples found during this research:
+
+- Official DOOM source release: https://github.com/id-Software/DOOM
+- Official Quake GPL source release: https://github.com/id-Software/Quake
+- Internet Archive DOOM SNES source preservation item: https://archive.org/details/jeffs-doom-snes-disk-images
+- Quake engine/source-port discovery index: https://quakeengines.github.io/
+- Video-game source-code preservation research: https://mrcook.uk/arcade-game-source-code/
+
+The original DOOM and Quake engine source releases are not equivalent to permission to redistribute the original commercial game data. The DOOM SNES Archive item is recorded as historical preservation evidence, not as an independently verified open-source license grant.
+
