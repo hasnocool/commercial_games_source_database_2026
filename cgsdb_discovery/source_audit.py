@@ -36,7 +36,7 @@ BUILD_FILES = {
 }
 BUILD_SUFFIXES = {
     ".mak", ".mk", ".sln", ".vcxproj", ".vcproj", ".dsp", ".dsw",
-    ".xcodeproj", ".xcworkspace", ".bat", ".cmd", ".sh", ".ps1",
+    ".xcodeproj", ".xcworkspace", ".bat", ".cmd", ".sh", ".ps1", ".ld", ".lds", ".lnk", ".rsp",
 }
 ASSET_DIR_HINTS = {
     "asset", "assets", "data", "resource", "resources", "media",
@@ -47,9 +47,13 @@ ASSET_DIR_HINTS = {
 DEPENDENCY_FILES = {
     "requirements.txt", "conanfile.py", "conanfile.txt", "vcpkg.json",
     "cargo.toml", "go.mod", "package.json", "pyproject.toml",
-    "pom.xml", "build.gradle", "packages.config",
+    "pom.xml", "build.gradle", "packages.config", "cmakelists.txt",
 }
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s*"([^"]+)"', re.MULTILINE)
+CMAKE_PACKAGE_RE = re.compile(r"(?im)^\s*(?:find_package|pkg_check_modules)\s*\(\s*([A-Za-z0-9_.+-]+)")
+CMAKE_LINK_RE = re.compile(r"(?im)^\s*target_link_libraries\s*\([^)]*?\b([A-Za-z0-9_.+-]+)\b")
+TOOLCHAIN_RE = re.compile(r"(?i)\b(ccpsx|psymake|psylib|gcc|g\+\+|clang\+\+|clang|nasm|arm-none-eabi-gcc|armips|vcvars(?:all)?|visual studio|directx sdk|fbx sdk|libultra|psy-?q|cmake|ninja|nmake)\b")
+LINKER_SUFFIXES = {".ld", ".lds", ".lnk", ".map", ".rsp"}
 @dataclass(slots=True)
 class FileEntry:
     path: str
@@ -138,8 +142,17 @@ async def _scan(root: Path) -> dict:
                 if (match := re.match(r"\s*([A-Za-z0-9_.-]+)", line))
                 and not line.lstrip().startswith("#")
             )
+        elif name == "cmakelists.txt":
+            dependencies.update(CMAKE_PACKAGE_RE.findall(text))
+            dependencies.update(CMAKE_LINK_RE.findall(text))
         elif name in {"conanfile.txt", "conanfile.py", "vcpkg.json"}:
             dependencies.add(f"dependency-manifest:{rel}")
+
+    linker_files = sorted(entry.path for entry in files if entry.suffix in LINKER_SUFFIXES)
+    toolchain_mentions: set[str] = set()
+    for rel in build_files:
+        build_text = await _read_text(root / rel)
+        toolchain_mentions.update(match.casefold() for match in TOOLCHAIN_RE.findall(build_text))
 
     source_files = [
         entry for entry in files
@@ -192,6 +205,8 @@ async def _scan(root: Path) -> dict:
         "asset_directories": asset_dirs,
         "dependency_manifests": sorted(dependency_files),
         "dependency_names": sorted(dependencies),
+        "linker_files": linker_files,
+        "toolchain_mentions": sorted(toolchain_mentions),
         "unresolved_local_includes": unresolved_includes[:500],
         "unresolved_local_include_count": len(unresolved_includes),
         "assessment": {
