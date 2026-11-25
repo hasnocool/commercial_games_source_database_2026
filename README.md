@@ -369,3 +369,19 @@ The DOS Games Archive source-code index is now registered as a secondary discove
 **ScummVM preservation distinction:** ScummVM credits acknowledge original source donations for titles including The Journeyman Project: Pegasus Prime, The Journeyman Project 2, the two Lost Files of Sherlock Holmes games, Hyperspace Delivery Boy and Mission Supernova. These credits establish that source was provided to the preservation project, not that the source is publicly redistributable. They are therefore leads for further rights research, not public-source candidates by default.
 
 The current discovery ledger contains **294 candidate records, 431 evidence records, and 30 registered discovery sources**. The canonical `data/games.csv` remains at **227 records**. No ScummVM-only source donations were misclassified as public source releases.
+
+
+### DOS reconstruction / source-port and simulation milestone sweep (2026-11-25)
+
+This pass adds a distinct reconstruction layer rather than treating every source-derived project as original game source:
+
+- **Duke Nukem II (1993)** — the `Duke2Reconstructed` project began 2022-06-17 and recreates C/assembly source from disassembly of the original executable. It aims for a byte-identical DOS binary. No license file or explicit redistribution grant was identified; retain as a public reconstruction lead, not an open-source-licensed original source release.
+- **Cosmo's Cosmic Adventure (1992)** — **Cosmore** began 2020-11-08 and reconstructs the v1.20 DOS source using the original compiler/toolchain. The reconstruction code is MIT-licensed; the original game IP and assets are not thereby relicensed. The project reports 96.30% binary matching, not 100%.
+- **Raptor: Call of the Shadows (1994)** — the DOS repository published in 2023 contains a community reverse-engineered source port/reconstruction under GPL-2.0-or-later, including APODMX in place of a proprietary audio library. It is not verified as a rightsholder-authorized original-source release; original game data remains separate.
+- **Chris Sawyer's Locomotion (2004)** — **OpenLoco** is a community MIT reimplementation, not original source. The project began in 2018; the developers announced on 2025-09-30 that all original game functions had been implemented. Original Locomotion data files are still required to play it.
+
+These entries are separately tagged as community reconstruction, source port or reimplementation. Their repository licenses apply to the new project code only; they do not automatically grant rights to original game data, assets or trademarks. OpenLoco's 2025 milestone is recorded as a completion event, not falsely represented as its initial source-release year.
+
+The DOS decompilation/source-port index is now registered as a secondary discovery source. **Dungeons of Noudar** was not added as a commercial game candidate because it is an original DOS homebrew project, not a commercial-game source release. ScummVM source donations remain excluded from the public-source set unless public redistribution rights can be established.
+
+The discovery ledger now contains **296 candidate records, 436 evidence records, and 31 registered discovery sources**. The canonical `data/games.csv` remains at **227 records**.
