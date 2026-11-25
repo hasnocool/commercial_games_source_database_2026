@@ -523,7 +523,7 @@ cgsdb-audit ./candidate-checkout --output ./source-audit.json
 
 This tranche added **one candidate (Magician) and five evidence records**, enriched five existing candidates, and registered four discovery sources. No canonical game records were added. The 1080, Chill and Beatmania descriptions were narrowed to reflect what the evidence actually establishes.
 
-**Current discovery ledger:** 322 candidate records, 481 evidence records, 35 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
+**Current discovery ledger:** 325 candidate records, 498 evidence records, 37 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
 
 ### Source tree static inventory — PS1 / GBA / N64 tranche (2026-11-25)
 
@@ -568,4 +568,4 @@ The Gigaleak root's `devkit`, `devsys`, `os20l` and `ostrees` directories are SD
 
 The source-audit utility's quoted-include regular expressions and path normalization were corrected after reviewing the implementation. However, there is no local checkout of the candidate repositories mounted in this session, and the metadata-only GitHub index is not the original source archive. Therefore the audit CLI and its unit tests have **not** been executed against a real local checkout in this pass. No build was run and no reproducible build result is claimed. The next execution gate is to obtain authorized/local source trees, run the utility and tests, then build only where the original SDK and rights allow.
 
-This tranche adds **three N64 candidates** (Super Mario 64, Ocarina of Time and Majora's Mask), **15 new evidence records**, updates the existing PS1/GBA/N64 assessments, and registers two sources. Canonical `data/games.csv` is unchanged.
+This tranche adds **three N64 candidates** (Super Mario 64, Ocarina of Time and Majora's Mask), **17 new evidence records**, updates the existing PS1/GBA/N64 assessments, and registers two sources. Canonical `data/games.csv` is unchanged.
