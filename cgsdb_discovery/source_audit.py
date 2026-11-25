@@ -51,9 +51,9 @@ DEPENDENCY_FILES = {
 }
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s*"([^"]+)"', re.MULTILINE)
 CMAKE_PACKAGE_RE = re.compile(r"(?im)^\s*(?:find_package|pkg_check_modules)\s*\(\s*([A-Za-z0-9_.+-]+)")
-CMAKE_LINK_RE = re.compile(r"(?im)^\s*target_link_libraries\s*\([^)]*?\b([A-Za-z0-9_.+-]+)\b")
+CMAKE_LINK_BLOCK_RE = re.compile(r"(?is)target_link_libraries\s*\(([^)]*)\)")
 TOOLCHAIN_RE = re.compile(r"(?i)\b(ccpsx|psymake|psylib|gcc|g\+\+|clang\+\+|clang|nasm|arm-none-eabi-gcc|armips|vcvars(?:all)?|visual studio|directx sdk|fbx sdk|libultra|psy-?q|cmake|ninja|nmake)\b")
-LINKER_SUFFIXES = {".ld", ".lds", ".lnk", ".map", ".rsp"}
+LINKER_SUFFIXES = {".ld", ".lds", ".lnk", ".rsp"}
 @dataclass(slots=True)
 class FileEntry:
     path: str
@@ -144,7 +144,9 @@ async def _scan(root: Path) -> dict:
             )
         elif name == "cmakelists.txt":
             dependencies.update(CMAKE_PACKAGE_RE.findall(text))
-            dependencies.update(CMAKE_LINK_RE.findall(text))
+            for block in CMAKE_LINK_BLOCK_RE.findall(text):
+                tokens = re.findall(r"[A-Za-z0-9_.+-]+", block)
+                dependencies.update(tokens[1:])
         elif name in {"conanfile.txt", "conanfile.py", "vcpkg.json"}:
             dependencies.add(f"dependency-manifest:{rel}")
 
