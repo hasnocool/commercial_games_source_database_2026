@@ -16,7 +16,9 @@
 
 ### Battle Konchuuden (SLPS-01779)
 
-- A public source repository exists: <https://github.com/RetailGameSourceCode/BattleKonchuuden>.
+- A public source repository exists: <https://github.com/RetailGameSourceCode/BattleKonchuuden>. Its current public page identifies the game as NTSC-J only and labels the source "Probably complete" (the repository's own qualified claim, not an independent completeness result).
+- Live repository inspection shows a small, three-commit repository with source directories `FADE`, `LIB`, `LIBFIO`, `LIBUTL`, `MAK`, `MODEL`, `P00`–`P09` (with P07 absent), `SPRITE`, `czpad`, and `redlib`, plus `MAKE.BAT`, `DBUGPSX.C00`, the retail executable, `.map`, and `.sym` files. This makes it especially important to separate game code from libraries and debug artifacts.
+- GitHub currently reports no detected repository license. Treat the public availability of this repository as access evidence only; authorization and redistribution remain unresolved.
 - The preservation catalogue describes the code as source found on the retail CD-ROM: <https://github.com/RetroReversing/retroReversing/blob/master/pages/SourceCode/RetailConsoleSourceCode.md>.
 - Prior inventory notes recorded 67 C files, 65 headers, and 108 makefiles, with Psy-Q tool references including `ccpsx` and `psymake`. Treat these counts as provisional until the exact source snapshot is re-audited.
 - Next: inspect the public repository tree and compare it with a locally held, independently dumped disc. Record whether the repository is a full mirror, partial extraction, or modified derivative. Do not overwrite the public snapshot with disc contents.
@@ -44,7 +46,7 @@ Previously recorded candidate inventories (provisional counts; the exact tree/re
 - Wario Land 4: 2,449 C files.
 - No `.ld` linker scripts were observed in the prior sweep.
 
-**Important classification correction for Wario Land 4:** public repositories surfaced in this follow-up are community decompilation/reconstruction projects, not evidence of an original developer source release. One project explicitly describes rebuilding from a user-supplied ROM and using `agbcc`, ARM binutils, Python, and a linker script. Do not classify these C files as original retail source. Keep decompilation/reconstruction records in a distinct provenance class and record any ROM-derived asset requirement.
+**Important classification correction for Wario Land 4:** public repositories surfaced in this follow-up are community decompilation/reconstruction projects, not evidence of an original developer source release. The inspected `lilDavid/warioland4` repository explicitly describes itself as a clean-room decompilation and its current root contains `Makefile`, `linker.ld`, `asm/`, `include/`, `src/`, and `tools/`. This confirms that the earlier "no .ld" observation does not describe this public reconstruction tree; it likely referred to a different tree or revision and must not be generalized. The project uses ROM-version-specific inputs and build tooling. Do not classify these C files as original retail source. Keep decompilation/reconstruction records in a distinct provenance class and record any ROM-derived asset requirement.
 
 Re-audit each tree and classify:
 1. Game-specific C/C++ and assembly.
