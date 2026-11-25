@@ -342,3 +342,14 @@ New candidate records:
 Added two chronological discovery indexes: GamingOnLinux's Source Code Release category and the commercial later-source-code index. They remain secondary discovery sources, not proof of licensing. All refreshed records remain in the discovery layer pending full item-level QA and canonical promotion.
 
 After this pass, the discovery ledgers contain **294 candidate records, 416 evidence records, and 28 registered discovery sources**. The canonical `data/games.csv` remains at **227 records**. No leaked source was promoted or treated as authorized. Engine-only releases, source ports, custom licenses, incomplete builds, and archival releases with no license are explicitly distinguished.
+
+
+### Additional 2020–2022 Windows source releases (2026-11-25 follow-up)
+
+A focused RPG/engine-source search also refreshed these inherited candidates with primary developer/repository evidence and populated their `source_release_year` values:
+
+- **Amnesia: The Dark Descent** and **Amnesia: A Machine for Pigs** (original 2010 / 2013; source release 2020-09-23): Frictional Games released full game and editor code under GPL-3.0. The commercial game content/assets remain proprietary; the old FBX SDK dependency may prevent a straightforward build.
+- **Age of Pirates 2: City of Abandoned Ships** (2009; Storm Engine source release 2021-03-25): the GPL-3.0 Storm Engine is engine-only; game assets are not included.
+- **Age of Pirates: Captain Blood** (2010; source release reported 2022-11-28): the Storm Devs repository publishes the game's engine source under GPL-3.0, not the commercial game assets.
+
+The Storm Engine repository and documentation are now registered as a primary discovery source. These are not additional candidate rows because all four titles already existed in the discovery ledger; six dated evidence records were added. The candidate ledger remains at **294 records**, evidence now contains **422 records**, and registered sources now total **29**. Canonical `data/games.csv` remains at **227 records**.
