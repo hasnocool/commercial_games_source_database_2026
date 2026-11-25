@@ -353,3 +353,19 @@ A focused RPG/engine-source search also refreshed these inherited candidates wit
 - **Age of Pirates: Captain Blood** (2010; source release reported 2022-11-28): the Storm Devs repository publishes the game's engine source under GPL-3.0, not the commercial game assets.
 
 The Storm Engine repository and documentation are now registered as a primary discovery source. These are not additional candidate rows because all four titles already existed in the discovery ledger; six dated evidence records were added. The candidate ledger remains at **294 records**, evidence now contains **422 records**, and registered sources now total **29**. Canonical `data/games.csv` remains at **227 records**.
+
+
+### DOS / Windows adventure and RPG archive sweep (2026-11-25)
+
+This pass prioritized older DOS/Windows games whose source became publicly available or was recovered during 2020–2026. It updated five existing candidate rows and added nine evidence records; no duplicate game candidates were created.
+
+- **Prince of Persia (1989, Apple II)** — original 6502 assembly source recovered from disks and published by author Jordan Mechner in 2022. This is a historical author release, not an OSI-licensed project. The author permits studying, modifying and attempting to run the source, but expressly grants no rights in the Prince of Persia franchise; Ubisoft controls game distribution.
+- **God of Thunder (1993, DOS)** — creator Ron Davis published the main source into the public domain on 2020-03-27; a separate archive with sound/music/utilities followed 2020-07-19. The main source is incomplete and does not compile as-is; licensed audio dependencies are missing, and graphics remain proprietary.
+- **Little Big Adventure (1994) and Little Big Adventure 2 (1997)** — current rights holder 2.21 released historic engine source on 2021-10-27 under GPL-2.0-only. These are engine-only source releases; proprietary art, models, textures, audio and excluded third-party libraries are not included in the grant.
+- **Machines: Wired for War (1999)** — Nightdive-authorized source release in 2020 under GPL-3.0. The source repository identifies Nightdive as the rights holder and the release as authorized; assets are separate.
+
+The DOS Games Archive source-code index is now registered as a secondary discovery source. It lists 96 DOS games with source downloads, but a listing is not proof of source release date, license, authorization, completeness or asset rights. Its candidates will be checked individually against original authors, rights holders and archive readmes.
+
+**ScummVM preservation distinction:** ScummVM credits acknowledge original source donations for titles including The Journeyman Project: Pegasus Prime, The Journeyman Project 2, the two Lost Files of Sherlock Holmes games, Hyperspace Delivery Boy and Mission Supernova. These credits establish that source was provided to the preservation project, not that the source is publicly redistributable. They are therefore leads for further rights research, not public-source candidates by default.
+
+The current discovery ledger contains **294 candidate records, 431 evidence records, and 30 registered discovery sources**. The canonical `data/games.csv` remains at **227 records**. No ScummVM-only source donations were misclassified as public source releases.
