@@ -316,3 +316,29 @@ This pass extends the independent view of **older games whose source became avai
 The existing canonical Unturned candidate was refreshed rather than duplicated. These records are classified by source scope and rights restrictions so engine-only source, custom non-commercial licenses, and community remakes are not counted as unrestricted open-source game releases.
 
 After this pass, the discovery ledgers contain **291 candidate records, 394 evidence records, and 26 registered discovery sources**. The canonical games table remains unchanged.
+
+
+### 2020–2025 source-release chronology expansion (2026-11-25)
+
+The discovery candidate schema now includes a dedicated **source_release_year** column, separate from **original_year**. The evidence ledger continues to hold the precise release date or date precision available. This allows older games with recent source releases to be filtered without misdating the original game.
+
+Primary-source evidence and metadata were refreshed for:
+- **Command & Conquer: Tiberian Dawn**, **Red Alert**, **Renegade**, and **Generals / Zero Hour** — EA's authorized GPL source release on 2025-02-27. The 2020 Remastered Collection DLL source is a separate, incomplete release; the 2025 repositories are the later fully recovered original source. Build dependencies, missing legacy libraries, third-party SDKs, assets and trademarks remain distinct considerations.
+- **VVVVVV** — developer release 2020-01-10 under a custom, non-OSI license; personal compilation is permitted, while broader distribution is restricted.
+- **Unrest**, **Will Fight for Food: SAS: GOTH**, and **Good Robot** — Pyrodactyl developer source releases 2020-08-03 under MIT; game assets still require the commercial installation.
+- **Perimeter** — GPLv3 game source; purchased game resources/assets remain required.
+- **Toki Tori 2+** — Two Tribes in-house engine source released 2021-12-17 under GPL-2.0-only; engine-only, not a complete game asset/source release.
+- **The Colony** — original creator's PC/Mac/Amiga source published 2023-06-06 under Apache-2.0.
+- **Descent 3** — source released 2024-04-16 with copyright-holder authorization, GPL-3.0-or-later.
+- **Rogue Legacy** — source published 2024-10-08 under a custom license; proprietary art/audio excluded and commercial distribution restricted.
+- **Star Fighter (3DO)** — 3DO source and assets published 2024-04-25 with contributor permission; no explicit open-source license identified, so redistribution rights are not inferred.
+- **Brány Skeldalu / Gates of Skeldal** — 2025 MIT C++ source port, not the original game's source; original DOS/Windows assets remain proprietary.
+
+New candidate records:
+- **Anodyne 2: Return to Dust** (original 2019; source published August 2024): complete source/assets repository under a custom license that is explicitly not OSI open source; asset access is restricted to paid owners.
+- **King under the Mountain** (original 2022; source release January 2024): developer's Java/LibGDX project under MIT.
+- **Mountaincore** (original 2023; source release 2025-04-22): developer's Java/LibGDX game source under MIT.
+
+Added two chronological discovery indexes: GamingOnLinux's Source Code Release category and the commercial later-source-code index. They remain secondary discovery sources, not proof of licensing. All refreshed records remain in the discovery layer pending full item-level QA and canonical promotion.
+
+After this pass, the discovery ledgers contain **294 candidate records, 416 evidence records, and 28 registered discovery sources**. The canonical `data/games.csv` remains at **227 records**. No leaked source was promoted or treated as authorized. Engine-only releases, source ports, custom licenses, incomplete builds, and archival releases with no license are explicitly distinguished.
