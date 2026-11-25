@@ -89,6 +89,60 @@ A GitHub repository's public visibility, a permissive-looking README, or an OSI 
 - Audit next: parse .sln and .vcxproj/.vcproj, enumerate prebuilt DLLs and optional SDK dependencies, map every third-party license, and test the documented VS toolchain in an isolated Windows environment.
 - Status: official engine/game-logic source release confirmed; complete commercial data not included.
 
+### DOOM (1993) — id Software
+
+- Official source: https://github.com/id-Software/DOOM
+- Release README is dated 1997-12-23 and says the released tree only compiles/runs on Linux; DOS source was not released because it depended on a copyrighted sound library, and the Windows port was not included.
+- License nuance requiring conservative treatment: the repository's LICENSE.TXT identifies GPL-2.0, while README.TXT describes the source as released for "non-profit use." Record this wording conflict and inspect the full release package/legal history before assigning unrestricted commercial-use status. Do not silently choose the more permissive interpretation.
+- Data: the source requires real DOOM game data; original assets are not included or relicensed by the code release.
+- Audit next: inventory linuxdoom-1.10, sersrc, sndserv and ipx separately; inspect Linux makefiles, sound-server dependencies and platform assumptions; compare source LICENSE.TXT and README.TXT in the same release archive.
+- Status: original source release confirmed; source scope is Linux-only and the release README conflicts with the GPL file on permitted use.
+
+### Rise of the Triad (1994) — Apogee / 3D Realms
+
+- Historical official release: https://github.com/dos-games/vanilla-rott (source archive mirror with the original release README).
+- Release: v1.3 CD source, 2002-12-20. The README states that the game itself remains commercial software and is not released with the source.
+- Build: Watcom C 10.0b; Borland Turbo Assembler (TASM) for a full assembly rebuild; precompiled object files are included for several assembly modules. Build command is wmake all; audio library has a separate wmake.bat build.
+- License: package includes gpl.txt; verify the exact GPL text and every bundled audio/assembler/object component independently before promoting broad reuse rights.
+- Audit next: compare original archive to mirror; classify rott, rottcom, rtsmaker, audiolib, and precompiled .obj files; determine which parts can be rebuilt without TASM and which depend on binary-only objects.
+- Status: official source-release evidence; legacy compiler/toolchain and separate game data are significant barriers.
+
+### Descent (1995) — Parallax Software
+
+- Source archive mirror: https://github.com/videogamepreservation/descent
+- The source README includes almost all Descent 1 v1.5 source but explicitly says low-level sound and modem code were removed because Parallax did not own that code.
+- License correction: although some 1998 announcement coverage used "public domain" language, the source README itself grants a perpetual license only for non-commercial, royalty/revenue-free purposes and expressly forbids revenue-bearing use. Treat it as a custom non-commercial license, not public domain or OSI open source.
+- Build: Watcom C/C++ 10.6, Microsoft Macro Assembler 6.11, GNU-compatible make; run maked1.bat. The README says the resulting executable runs without sound and serial-port functionality. The editor requires editdata.zip and a special build define.
+- Data: original commercial game data is required and remains separately copyrighted.
+- Status: near-complete original source snapshot with known code removals and non-commercial-only rights.
+
+### Descent II (1996) — Parallax / Outrage / Volition
+
+- Source archive mirror: https://github.com/videogamepreservation/descent2
+- The included message from Matt Toschlog and Mike Kulas identifies this as Descent II v1.2 and says almost all source is included, but low-level sound, modem and movie code were removed.
+- License: custom non-commercial, royalty/revenue-free license; not public domain or OSI open source.
+- Critical buildability issue: the original README explicitly states the packaged source does not compile because files were removed to release it.
+- Build toolchain named by the archive: Watcom C/C++ 9.5, Microsoft Macro Assembler 6.1x, Opus Make 6.01. Reconstructing a build requires identifying the missing source/modules and any platform libraries without pretending the published snapshot is complete.
+- Data: original game data is not included and remains separately licensed.
+- Status: partial original source snapshot; known non-buildable as packaged.
+
+### Return to Castle Wolfenstein (2001) — Gray Matter / id Software
+
+- Separate official repositories: https://github.com/id-Software/RTCW-SP and https://github.com/id-Software/RTCW-MP
+- Both single-player and multiplayer source releases were published in August 2010 under GPL-3.0 with additional terms and expressly excluded third-party code. Do not assume every file in either tree is covered by GPL-3.0.
+- Build: Visual C++ 2008 solution (Express-compatible). Linux uses the legacy Perl-based cons script. Single-player additionally runs src/extractfuncs/extractfuncs.bat to generate src/game/g_save.c.
+- Data: neither source release includes game data; a patched retail installation is required. The original EULA continues to govern the data.
+- Audit next: keep SP and MP as separate source components; compare COPYING.txt and README.txt, enumerate excluded code (zlib, RSA MD4, JPEG and other notices), and verify the generated-file step.
+- Status: authorized original source release; game data and excluded third-party components remain separate.
+
+### Wolfenstein: Enemy Territory (2003) — Splash Damage / id Software
+
+- Official repository: https://github.com/id-Software/Enemy-Territory
+- Source released 2010-08-12 under GPL-3.0 with additional terms and an explicit excluded-code list. The original game was made available free of charge, but the source release still excludes game data and leaves it under the original EULA.
+- Build: Visual C++ 2008 Express-compatible solution on Windows; SCons from the src/ directory on GNU/Linux x86.
+- Audit next: inventory src/, identify excluded-code sections in README.txt and COPYING.txt, inspect SCons scripts and all bundled third-party notices, and test a clean build independently.
+- Status: official source release; separate game data is freely obtainable from the original distribution channel but is not automatically GPL-licensed.
+
 ## Priority 2 — authorized but commercially restricted source
 
 ### FreeSpace 2 (1999) — Volition
