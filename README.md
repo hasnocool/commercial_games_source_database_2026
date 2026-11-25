@@ -533,7 +533,7 @@ This pass inspected source files, build scripts and published file-tree inventor
 
 - **Battle Konchuuden:** direct source inspection confirms GNU C for PlayStation R3000. `P00/MAINSYS.C`, `P01/BATTLE.C` and `P08/AKMCRD.C` show system, battle and memory-card game logic. `MAK/P01.MAK` calls Psy-Q `ccpsx`, `psylib` and `psymake`; `MAKE.BAT` invokes `psymake`. The repository tree has 19,686 files: 67 C, 65 headers, 108 .mak, 45 .obj and 25 .lib, plus extensive game assets. README says “probably complete.” Proprietary SDK headers/libraries remain dependencies; no current build or authorization is established.
 - **Beatmania APPEND 5th MIX:** KCEJ Wiki identifies the exact location: `cdrom0:\\DUMMY` on Beatmania Best Hits (SLPM-86596), an LZH archive of `C:\\5thMix\\Work.5th`. Its file inventory lists `MAIN/BM.C`, gameplay code under `TAN` (including `GM_GAME.C`, `GM_NOTE.C`, `JUDGE.C`, `SCENE.C`), game/menu code under `LIBBM`, filesystem, memory-card, display, sound, debug tools, headers, makefiles, linker files, objects and libraries. The wiki says Psy-Q SDK can compile it. Some libraries were shared with Konami's Metal Gear Solid production department. Archive extraction and actual build still outstanding; license and permission unknown.
-- **Chill:** still only a prototype snapshot identified in the retail-disc padding file; not promoted to a complete final-game source claim.
+- **Chill:** still only a prototype snapshot identified in the retail-disc padding file; Hidden Palace currently reports its download file missing. The prototype has not been acquired or extracted; it is not promoted to a complete final-game source claim.
 
 **GBA — leaked CVS metadata inventory**
 
