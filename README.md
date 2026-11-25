@@ -260,3 +260,13 @@ Examples found during this research:
 
 The original DOOM and Quake engine source releases are not equivalent to permission to redistribute the original commercial game data. The DOOM SNES Archive item is recorded as historical preservation evidence, not as an independently verified open-source license grant.
 
+### Popular PC source-catalogue expansion — 2026-11-25
+
+A new discovery sweep used the [Commercial Game Sources GitHub catalogue](https://github.com/commercial-game-sources), which explicitly distinguishes original source archives from reconstructions, reimplementations, remakes and convenience ports.
+
+This pass added **25 new PC-game candidates** to `data/discovery/candidates.csv` and **25 catalogue evidence records** to `data/discovery/evidence.csv`. Four titles from the discovery list were already present in the canonical games table and were not duplicated. The newly staged candidates include Rogue, Digger, Willy the Worm, Leisure Suit Larry, Double Dragon II, Eye of the Beholder II, Stunts, Commander Keen in Keen Dreams, Another World, Dune II, Ken's Labyrinth, Flashback, Duke Nukem II, Beneath a Steel Sky, Jazz Jackrabbit, Pinball Fantasies, Witchaven, Tyrian, In Pursuit of Greed, Diablo, Blood, Dungeon Keeper, Carmageddon, Forsaken, Jazz Jackrabbit 2, Penumbra: Overture, S.T.A.L.K.E.R.: Call of Pripyat, Amnesia: The Dark Descent, and Thirty Flights of Loving.
+
+These are **discovery candidates, not newly verified canonical game records**. Their review status is `needs-verification`; license, authorization, source completeness, and redistribution are left unresolved until upstream repositories and source archives are inspected. Reimplementations, remakes and reverse-engineered projects are tagged so they cannot be mistaken for original authorized source releases.
+
+The discovery source registry now includes `commercial-game-sources`. See the source index at https://github.com/commercial-game-sources and its explanation of original archives versus derived projects. A source listing is a lead, not proof of rights.
+
