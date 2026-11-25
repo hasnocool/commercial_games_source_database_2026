@@ -597,3 +597,8 @@ This tranche inspected official source repositories, their README/COPYING files,
 The discovery ledger now contains **325 candidates, 506 evidence records and 39 registered sources**; canonical `data/games.csv` remains at 227 records. No builds were executed in this pass.
 
 The source-audit utility was extended in this tranche to extract CMake `find_package` and `target_link_libraries` dependencies, identify linker-script files (`.ld`, `.lds`, `.lnk`, `.rsp`), and record compiler/SDK/toolchain mentions from build files. Unit tests now cover CMake dependencies, linker scripts, compiler detection, quoted include resolution and symlink-safe traversal. **The tests and CLI have not been executed**: no local source checkout was mounted, and the environment could not resolve GitHub for a local clone. The PC/N64/GBA figures in this README are static inventories derived from the repositories' published file trees and build manifests, not results emitted by the local audit CLI.
+
+
+### 2026-11-25 reproducible build milestone — POSTAL
+
+The first pinned-revision build dossier is available at [docs/builds/POSTAL_REPRODUCIBLE_BUILD.md](docs/builds/POSTAL_REPRODUCIBLE_BUILD.md), with a machine-readable manifest at [data/builds/postal1.json](data/builds/postal1.json). Static inspection identifies the current POSTAL_2015 Linux Makefile path, GCC/G++, SDL2, the VS2017-era Windows project files, and the separate game-data requirement. **No successful build is claimed yet:** the execution environment could not resolve github.com, so checkout stopped before compiler invocation. Build and runtime gates remain open.
