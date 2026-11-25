@@ -404,4 +404,24 @@ The DOS Games Archive source-code index currently reports 96 DOS games. Its list
 
 **Other audit leads:** Lords of Midnight PC / Doomdark's Revenge PC, Gladiator, Grange Murders, Linley's Dungeon Crawl, and the source entries for other archive titles are being checked individually. Entries such as modern freeware/homebrew, engines, editors, ports and reconstructions are not automatically included as commercial original-source releases. ScummVM donations are treated as evidence of authorized preservation access, not automatically public source redistribution rights.
 
-The DOS Games Archive's current source index is registered as a secondary discovery source. This tranche added one candidate and six evidence records, enriched four existing candidates, and did not change canonical `data/games.csv`. The discovery ledger now contains **297 candidate records, 442 evidence records, and 31 registered discovery sources**.
+The DOS Games Archive's current source index is registered as a secondary discovery source. This tranche added one candidate and six evidence records, enriched four existing candidates, and did not change canonical `data/games.csv`. The discovery ledger then contained **297 candidate records, 442 evidence records, and 31 registered discovery sources**.
+
+### Cross-platform console and PC source discovery — first tranche (2026-11-25)
+
+This tranche begins the expansion beyond PC/DOS to console source archives. Console and PC candidates are classified independently as original authorized releases, source found/unverified, decompilation/reconstruction, or port/reimplementation. Language, completeness, authorization and buildability are not inferred from an index label.
+
+**Four new discovery candidates:**
+
+- **WipEout (1995, PS1 + Windows)** — Forest of Illusion published source archives supplied by March42 on 2022-03-27. The releasers explicitly said it was not an official release, restricted the purpose to preservation/education, and did not know whether it built. Classified as source found/unverified, not an authorized release; license and archive completeness remain unknown.
+- **Turok: Dinosaur Hunter (1997, N64)** — original source reportedly surfaced in 2018 from an unknown patron, possibly originating from an SGI workstation sold after Acclaim's bankruptcy. Technical analysis reports predominantly C with a small number of assembly files. Origin, authorization, license, completeness and buildability remain unverified.
+- **B.O.B. (1993, SNES)** — SNES source reportedly found on a hard drive purchased on eBay in 2008. A later public repository has Source, Maps and Sound directories and describes completeness as “probably complete”; this is not independently verified and no authorization/license is established.
+- **DOOM (1995, SNES / DOOM FX)** — original port programmer Randy Linden released source in 2020. Contemporary discussion describes an initial phase-one release with copyrighted assets removed and the original toolchain/compiler utilities not included at that stage. This is an original-programmer release, but partial source, license and buildability require further inspection. The code is primarily 65816/Super FX assembly, not C/C++.
+
+**Existing candidates enriched:**
+
+- **California Watersports (PS1)** — RetroReversing reports a 2020 source release with developer Mark Theyer's permission and points to Internet Archive item `cws-src`. Authorization is recorded as developer-permitted; exact license, archive inventory, language, completeness and buildability remain unverified.
+- **Penumbra: Overture (2007, PC)** — official Frictional Games repository confirms GPL-3.0-or-later code, C++ source, and Xcode, Visual Studio 2003 and CMake project files. Build files are present but a successful build was not performed.
+- **Return to Castle Wolfenstein (2001, PC)** — id Software's official multiplayer source repository and 2010 release announcement establish authorized GPL-3.0 source with additional terms. The release includes C/C++ code and Windows/Linux build instructions; game data remains under the original EULA. Buildability was not independently tested.
+- **Amnesia: The Dark Descent** remains an official GPL-3 source release; the repository README identifies a legacy FBX SDK 2012 dependency that prevents a straightforward current build.
+
+This tranche added **four candidates and seven evidence records**, enriched three existing candidates, and did not promote any of the new console candidates into canonical `data/games.csv`. It also confirms that the existing `Forsaken` community repository is a substantial port/toolchain migration, not a direct claim that the public ForsakenX repository is an untouched original source drop.
