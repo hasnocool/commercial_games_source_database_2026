@@ -146,7 +146,7 @@ async def _scan(root: Path) -> dict:
             dependencies.update(CMAKE_PACKAGE_RE.findall(text))
             for block in CMAKE_LINK_BLOCK_RE.findall(text):
                 tokens = re.findall(r"[A-Za-z0-9_.+-]+", block)
-                dependencies.update(tokens[1:])
+                dependencies.update(token for token in tokens[1:] if token.casefold() not in {"private", "public", "interface", "debug", "optimized", "general", "release"})
         elif name in {"conanfile.txt", "conanfile.py", "vcpkg.json"}:
             dependencies.add(f"dependency-manifest:{rel}")
 
