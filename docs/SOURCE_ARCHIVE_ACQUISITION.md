@@ -34,14 +34,17 @@
 
 - A retail-disc source snapshot is listed as an earlier Silicon Dreams build: <https://www.retroreversing.com/sourcecode> (retail console source index).
 - The index links a PAL disc image entry and describes source files among the disc contents. This is a research lead, not an independently confirmed complete source release.
-- Next: inspect a lawfully held image's filesystem and CDFILLER/dummy-data areas; determine whether C files are actual text source or merely filenames/metadata. Hash all extracted files and audit the resulting tree.
+- The more specific disc-path lead is `bags/cdfiller.dat`, described by a PS1 preservation reference as a ZIP archive despite its `.dat` extension. Treat that as a candidate archive format until the local file signature is checked.
+- Next: on a lawfully held image, extract `bags/cdfiller.dat` as a ZIP only after confirming its signature; inventory the archive before extraction, then determine whether C files are actual text source or merely filenames/metadata. Hash the original archive and all extracted files and audit the resulting tree.
 
 ## Priority B — Game Boy Advance source trees
 
-Previously recorded candidate inventories:
+Previously recorded candidate inventories (provisional counts; the exact tree/revision was not preserved in the summary):
 - Super Mario Advance: 283 C files.
 - Wario Land 4: 2,449 C files.
 - No `.ld` linker scripts were observed in the prior sweep.
+
+**Important classification correction for Wario Land 4:** public repositories surfaced in this follow-up are community decompilation/reconstruction projects, not evidence of an original developer source release. One project explicitly describes rebuilding from a user-supplied ROM and using `agbcc`, ARM binutils, Python, and a linker script. Do not classify these C files as original retail source. Keep decompilation/reconstruction records in a distinct provenance class and record any ROM-derived asset requirement.
 
 Re-audit each tree and classify:
 1. Game-specific C/C++ and assembly.
