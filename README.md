@@ -270,3 +270,13 @@ These are **discovery candidates, not newly verified canonical game records**. T
 
 The discovery source registry now includes `commercial-game-sources`. See the source index at https://github.com/commercial-game-sources and its explanation of original archives versus derived projects. A source listing is a lead, not proof of rights.
 
+
+### PC source-code discovery expansion — 2026-11-25 (second pass)
+
+A second research pass added **27 additional PC-game source-availability candidates** and **27 corresponding evidence records**. It used the [commercial-game source-code index](https://en.wikipedia.org/wiki/List_of_commercial_video_games_with_available_source_code) and registered the [DOS Games Archive source-code catalogue](https://www.dosgamesarchive.com/license/source-code), which currently reports 96 DOS source-code game listings. The DOS Games Archive [source-link directory](https://www.dosgamesarchive.com/links) is also registered as a discovery reference for locating upstream repositories and historical releases.
+
+New candidate leads include **Actua Soccer 96, Age of Pirates: Captain Blood, Age of Pirates 2: City of Abandoned Ships, Aliens versus Predator 2, Army Men, The Black Cauldron, Blood & Magic, Crysis, Crysis 2, Crysis 3, Dark Reign 2, Donald Duck's Playground, Duke Nukem Forever (2001 alpha), EVE Online, Fate, Far Cry, The F.A. Premier League Stars, FIFA 97, Falcon 4.0, Half-Life 2 (2003 alpha), Harry Potter and the Chamber of Secrets, King's Quest III, three additional Leisure Suit Larry titles, Lineage II, GunZ: The Duel, Gears of War, Grand Theft Auto V,** and **Cyberpunk 2077**. The candidates already present in the database were skipped.
+
+This is a **high-recall source-availability research layer**, not a list of approved open-source projects. The source-code index explicitly includes leaks, accidental disclosures, recovered archives, and material with unclear legal status. Candidates are tagged accordingly; no leaked or accidentally exposed code is promoted as authorized, and no license or redistribution permission is inferred from a catalogue listing. Primary archives, developer/rightsholder statements, source completeness, exact versions, and asset/data rights still require item-level verification.
+
+After this pass, the discovery ledgers contain **279 candidate records, 370 evidence records, and 25 registered discovery sources**. The canonical data/games.csv was not changed; candidate records remain in needs-verification until independently reviewed.
