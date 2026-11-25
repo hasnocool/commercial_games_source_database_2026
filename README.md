@@ -487,3 +487,37 @@ This tranche added **19 candidates and 21 evidence records**, enriched existing 
 This PC audit enriched Serious Sam Classic and added one S.T.A.L.K.E.R. candidate. The database distinguishes engine + game logic from engine-only releases and records build instructions separately from a verified successful build.
 
 **Current discovery ledger:** 321 candidate records, 474 evidence records, 31 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
+
+### Source archive inventory audit — third tranche (2026-11-25)
+
+This tranche inspected repository trees rather than relying only on catalogue descriptions.
+
+**PlayStation findings:**
+
+- **Battle Konchuuden:** recursive GitHub tree contains 19,686 files, including 67 C files, 65 headers, 108 makefiles, 45 object files, 25 libraries, a top-level `MAKE.BAT`, and extensive game-specific model, map, animation, texture and audio data. This is a substantial PS1 development tree. No license or original rights-holder authorization was located; a successful build and complete final-game coverage have not been verified.
+- **Chill:** Hidden Palace identifies the September 30, 1997 prototype inside the European retail release at `BAGS/CDFILLER.DAT`. Its `EXECUTE` folder contains the prototype build and `CTI` contains assets needed to generate a CD image. This is a prototype/source snapshot, not proof of complete final-game source.
+- **Beatmania:** source attributed to Beatmania 5th Mix was reportedly mistakenly included on the 2000 Beatmania Best Hits disc. The source was not on the 5th Mix disc itself. Its source package and license still need direct inspection.
+- **SpongeBob SquarePants: SuperSponge:** recursive repository inventory shows 19,844 files, including 490 C++ files, 111 C files, 542 headers, 20 Visual Studio project files, 6 solution files, numerous makefiles, extensive graphics/audio assets and utility projects. This materially supports the repository's claim of a broad VSS project archive, but does not prove a successful modern build or rights to redistribute all assets. The README's game-title copy/paste error remains noted.
+- **Ultimate Mortal Kombat 3:** recursive inventory contains 77 C files and 68 headers, but no build files were identified; the repository explicitly calls it incomplete and not buildable.
+
+**SNES and N64 corrections:**
+
+- **B.O.B.:** recursive tree contains 430 files: 102 assembly files, 4 headers, 164 `.asp`, 38 `.a`, 82 maps, 12 `.sne` and 3 makefiles, with Source/Maps/Sound directories. This is a substantial assembly-heavy source/data tree, not a C/C++ release. RetroReversing describes it as developer-team released, but a primary release announcement and license were not found in this pass.
+- **1080 Snowboarding:** detailed Gigaleak 2 notes say the main game tree lacks uncompiled C/header sources and contains precompiled ELF object files. It remains a leaked-source/artifact discovery but must not count toward confirmed C/C++ source totals.
+- **Magician (NES):** added from original programmer Chris Shrigley's December 2012 archive. Shrigley identifies himself as designer/programmer and says the archive is educational-use only with commercial use prohibited. The project is 6502 assembly, not C/C++.
+
+### Local source audit utility
+
+Added `cgsdb_discovery/source_audit.py` and tests in `tests/test_source_audit.py`, plus the `cgsdb-audit` CLI entry point. It performs a read-only local tree inventory of file extensions/languages, build metadata, asset/data directories, dependency manifests and unresolved quoted local C/C++ includes. Reports are JSON and output files are written atomically. It deliberately labels buildability and completeness as **not tested / not assessed**; it does not infer licensing, authorization or full-game coverage. Tests were added but have not been executed in this connector-only update.
+
+Example after cloning a candidate repository:
+
+```bash
+python -m cgsdb_discovery.source_audit ./candidate-checkout --output ./source-audit.json
+# or, after installing the project:
+cgsdb-audit ./candidate-checkout --output ./source-audit.json
+```
+
+This tranche added **one candidate (Magician) and five evidence records**, enriched four existing candidates, and registered four discovery sources. No canonical game records were added. The 1080, Chill and Beatmania descriptions were narrowed to reflect what the evidence actually establishes.
+
+**Current discovery ledger:** 322 candidate records, 479 evidence records, 35 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
