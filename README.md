@@ -301,3 +301,18 @@ The existing **Skin Deep** (2025) canonical candidate was refreshed with its off
 The MobyGames officially released source-code group was added as a discovery source. Its stated criteria exclude unofficial leaks and SDK-only entries; use it to discover developer/publisher releases, then verify each primary source. Other secondary indexes are used for leak leads only. No leaked source is treated as licensed or authorized.
 
 After this pass, the discovery ledgers contain **287 candidate records, 381 evidence records, and 26 registered discovery sources**; the canonical data/games.csv remains at **227 records**. These are discovery-layer records and require item-level validation before canonical promotion.
+
+
+### 2026 source-release discoveries: older PC games and engine frameworks (2026-11-25)
+
+This pass extends the independent view of **older games whose source became available during 2026**, without changing their original release years.
+
+- **Arma: Cold War Assault / Operation Flashpoint: Cold War Crisis** (original 2001; source released 2026-06-22): Bohemia Interactive published the Poseidon engine and game source under GPL-3.0-or-later with additional Section 7 terms. Game assets are separately licensed under APL-SA; trademarks are not granted.
+- **Unturned** (original full release 2017; source released 2026-07-07): official Unity project under the custom U3 SDK License Agreement. Free, non-commercial PC mods only; not OSI open source. Core asset bundle and certain third-party/anti-cheat code are excluded.
+- **EVE Online / Carbon engine framework** (original game 2003; engine source transition completed 2026-07-01): Carbon is the framework behind EVE Online/EVE Frontier, not the full EVE game/client/server source. Module licenses vary (reported MIT, Apache-2.0 and PSF); inspect each module.
+- **s&box engine and editor** (2026): separate engine/framework record, not a conventional standalone game's complete source. C# engine/editor source is MIT, while native Source 2 binaries and third-party components have separate terms.
+- **Tails Adventure (2026 remake)**: a community remake/reimplementation of Sega's 1995 game, not original Sega source. Its C++ source is GPL-3.0; Sega IP, trademarks and assets are not granted by that code license.
+
+The existing canonical Unturned candidate was refreshed rather than duplicated. These records are classified by source scope and rights restrictions so engine-only source, custom non-commercial licenses, and community remakes are not counted as unrestricted open-source game releases.
+
+After this pass, the discovery ledgers contain **291 candidate records, 394 evidence records, and 26 registered discovery sources**. The canonical games table remains unchanged.
