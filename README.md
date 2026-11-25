@@ -486,6 +486,9 @@ This tranche added **19 candidates and 21 evidence records**, enriched existing 
 
 This PC audit enriched Serious Sam Classic and added one S.T.A.L.K.E.R. candidate. The database distinguishes engine + game logic from engine-only releases and records build instructions separately from a verified successful build.
 
+- **Doom 3: BFG Edition** — official id Software C++ source repository; GPL-3.0 with additional terms and excluded third-party code. The README documents a Visual Studio 2010 solution and DirectX SDK June 2010 requirement. Game data remains under the original EULA; Steam integration, Bink playback and depth-fail stencil shadows are omitted.
+- **Amnesia: A Machine for Pigs** — official Frictional Games C++ source under GPL-3.0 with Visual Studio 2010 and CMake project files. The README identifies Autodesk FBX SDK 2012 as an unavailable dependency that prevents compilation; build metadata exists but successful buildability is not established.
+
 **Current discovery ledger:** 321 candidate records, 474 evidence records, 31 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
 
 ### Source archive inventory audit — third tranche (2026-11-25)
@@ -520,4 +523,4 @@ cgsdb-audit ./candidate-checkout --output ./source-audit.json
 
 This tranche added **one candidate (Magician) and five evidence records**, enriched five existing candidates, and registered four discovery sources. No canonical game records were added. The 1080, Chill and Beatmania descriptions were narrowed to reflect what the evidence actually establishes.
 
-**Current discovery ledger:** 322 candidate records, 479 evidence records, 35 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
+**Current discovery ledger:** 322 candidate records, 481 evidence records, 35 registered discovery sources. Canonical `data/games.csv` remains at 227 records.
